@@ -47,18 +47,28 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let cli = Cli::parse();
 
-    eprintln!("{}", "Ethos: High-Fidelity Ethereum Tracing Suite".bold().cyan());
+    eprintln!(
+        "{}",
+        "Ethos: High-Fidelity Ethereum Tracing Suite".bold().cyan()
+    );
 
     match cli.command {
         Commands::Profile { tx, rpc, demo, out } => {
             if !demo && tx.is_empty() {
-                eprintln!("\n{} You must provide a transaction hash (--tx) or run with --demo.", "Error:".bold().red());
+                eprintln!(
+                    "\n{} You must provide a transaction hash (--tx) or run with --demo.",
+                    "Error:".bold().red()
+                );
                 std::process::exit(1);
             }
-            
+
             let display_tx = if demo { "demo" } else { &tx };
-            eprintln!("Profiling transaction: {} on {}", display_tx.green(), rpc.yellow());
-            
+            eprintln!(
+                "Profiling transaction: {} on {}",
+                display_tx.green(),
+                rpc.yellow()
+            );
+
             commands::profile::execute_profile(&tx, &rpc, demo, out).await?;
         }
         Commands::Diff { base, target } => {
