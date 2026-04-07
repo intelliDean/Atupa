@@ -2,6 +2,7 @@ mod commands;
 
 use clap::{Parser, Subcommand};
 use colored::*;
+use ethos_core::config::EthosConfig;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -50,6 +51,7 @@ enum Commands {
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let cli = Cli::parse();
+    let config = EthosConfig::load();
 
     eprintln!(
         "{}",
@@ -58,6 +60,9 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Profile { tx, rpc, demo, out, etherscan_key } => {
+            let effective_rpc = if rpc != "http://localhost:8545" { rpc } else { config.rpc_url };
+            let effective_key = etherscan_key.or(config.etherscan_key);
+
             if !demo && tx.is_empty() {
                 eprintln!(
                     "\n{} You must provide a transaction hash (--tx) or run with --demo.",
@@ -70,10 +75,10 @@ async fn main() -> anyhow::Result<()> {
             eprintln!(
                 "Profiling transaction: {} on {}",
                 display_tx.green(),
-                rpc.yellow()
+                effective_rpc.yellow()
             );
 
-            commands::profile::execute_profile(&tx, &rpc, demo, out, etherscan_key).await?;
+            commands::profile::execute_profile(&tx, &effective_rpc, demo, out, effective_key).await?;
         }
         Commands::Diff { base, target } => {
             eprintln!("Comparing traces: {} and {}", base.green(), target.yellow());

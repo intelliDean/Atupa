@@ -1,41 +1,34 @@
+use askama::Template;
 use ethos_core::CollapsedStack;
-use std::fmt::Write;
+
+#[derive(Template)]
+#[template(path = "flamegraph.svg")]
+struct FlamegraphTemplate {
+    stacks: Vec<StackEntry>,
+    width: u32,
+    height: u32,
+}
+
+struct StackEntry {
+    y: f64,
+    width: f64,
+    label: String,
+    class: String,
+}
 
 pub struct SvgGenerator;
 
 impl SvgGenerator {
-    /// Generates a simple text-based "flamegraph" block for CLI, or raw SVG payload.
-    /// In a full implementation, this uses a robust crate like `inferno`.
-    /// For Milestone 1, we will generate a valid SVG visualization string matching Ethos Aesthetic.
+    /// Generates a valid SVG visualization string matching Ethos Aesthetic using Askama.
     pub fn generate_flamegraph(stacks: &[CollapsedStack]) -> anyhow::Result<String> {
-        let mut svg = String::new();
-        svg.push_str("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 500\" style=\"background-color:#0d1117\">\n");
-        svg.push_str("  <style>\n");
-        svg.push_str(
-            "    .text { font-family: 'Inter', monospace; fill: #ffffff; font-size: 12px; pointer-events: none; }\n",
-        );
-        svg.push_str(
-            "    .box { fill: url(#ethos-gradient); stroke: #1f2937; stroke-width: 1px; rx: 4px; }\n",
-        );
-        svg.push_str(
-            "    .box-revert { fill: url(#revert-gradient); stroke: #7f1d1d; stroke-width: 1px; rx: 4px; }\n",
-        );
-        svg.push_str("  </style>\n");
-        svg.push_str("  <defs>\n");
-        svg.push_str("    <linearGradient id=\"ethos-gradient\" x1=\"0%\" y1=\"0%\" x2=\"0%\" y2=\"100%\">\n");
-        svg.push_str("      <stop offset=\"0%\" stop-color=\"#0ea5e9\" />\n");
-        svg.push_str("      <stop offset=\"100%\" stop-color=\"#4f46e5\" />\n");
-        svg.push_str("    </linearGradient>\n");
-        svg.push_str("    <linearGradient id=\"revert-gradient\" x1=\"0%\" y1=\"0%\" x2=\"0%\" y2=\"100%\">\n");
-        svg.push_str("      <stop offset=\"0%\" stop-color=\"#ef4444\" />\n");
-        svg.push_str("      <stop offset=\"100%\" stop-color=\"#991b1b\" />\n");
-        svg.push_str("    </linearGradient>\n");
-        svg.push_str("  </defs>\n");
-
-        // Normalize weights
         let total_weight: u64 = stacks.iter().map(|s| s.weight).sum();
+        if total_weight == 0 {
+             return Ok("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 50\"><text x=\"10\" y=\"30\" fill=\"white\">No execution data found.</text></svg>".to_string());
+        }
+
         let max_width = 980.0;
         let mut current_y = 20.0;
+        let mut template_stacks = Vec::new();
 
         for stack in stacks {
             if stack.weight == 0 {
@@ -44,17 +37,11 @@ impl SvgGenerator {
             let width = (stack.weight as f64 / total_weight as f64) * max_width;
             if width < 1.0 {
                 continue;
-            } // Too small to render
+            }
 
             let box_class = if stack.reverted { "box-revert" } else { "box" };
-
-            // Format variables dynamically here where needed
-            svg.push_str(&format!(
-                "  <rect x=\"10\" y=\"{}\" width=\"{}\" height=\"20\" class=\"{}\" />\n",
-                current_y, width, box_class
-            ));
-
             let leaf_name = stack.stack.split(';').last().unwrap_or("unknown");
+            
             let mut label = format!("{} ({} gas)", leaf_name, stack.weight);
             if let Some(addr) = &stack.target_address {
                 label = format!("{} [{}] ({} gas)", leaf_name, addr, stack.weight);
@@ -63,16 +50,22 @@ impl SvgGenerator {
                 label = format!("REVERTED: {}", label);
             }
 
-            svg.push_str(&format!(
-                "  <text x=\"15\" y=\"{}\" class=\"text\">{}</text>\n",
-                current_y + 14.0,
-                label
-            ));
+            template_stacks.push(StackEntry {
+                y: current_y,
+                width,
+                label,
+                class: box_class.to_string(),
+            });
 
             current_y += 25.0;
         }
 
-        svg.push_str("</svg>\n");
-        Ok(svg)
+        let template = FlamegraphTemplate {
+            stacks: template_stacks,
+            width: 1000,
+            height: (current_y + 20.0) as u32,
+        };
+
+        Ok(template.render()?)
     }
 }

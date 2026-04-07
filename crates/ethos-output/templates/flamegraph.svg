@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {{ width }} {{ height }}" style="background-color:#0d1117">
+  <style>
+    .text { font-family: 'Inter', monospace; fill: #ffffff; font-size: 12px; pointer-events: none; }
+    .box { fill: url(#ethos-gradient); stroke: #1f2937; stroke-width: 1px; rx: 4px; }
+    .box-revert { fill: url(#revert-gradient); stroke: #7f1d1d; stroke-width: 1px; rx: 4px; }
+  </style>
+  <defs>
+    <linearGradient id="ethos-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+    <linearGradient id="revert-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444" />
+      <stop offset="100%" stop-color="#991b1b" />
+    </linearGradient>
+  </defs>
+
+  {% for entry in stacks %}
+  <rect x="10" y="{{ entry.y }}" width="{{ entry.width }}" height="20" class="{{ entry.class }}" />
+  <text x="15" y="{{ entry.y + 14.0 }}" class="text">{{ entry.label }}</text>
+  {% endfor %}
+</svg>

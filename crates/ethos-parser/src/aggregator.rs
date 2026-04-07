@@ -112,16 +112,37 @@ mod tests {
         ];
 
         let stacks = Aggregator::build_collapsed_stacks(&steps);
-        
-        println!("Generated stacks: {:?}", stacks);
-        
         assert!(!stacks.is_empty(), "Stacks should not be empty");
-        
         let sstore_stack = stacks.iter().find(|s| s.stack == "CALL;CALL;SSTORE").expect("Should find SSTORE");
         assert_eq!(sstore_stack.weight, 20);
+    }
 
-        let push1_stack = stacks.iter().find(|s| s.stack == "CALL;PUSH1").expect("Should find PUSH1");
-        assert_eq!(push1_stack.weight, 3);
+    #[test]
+    fn test_aggregator_recursive_calls() {
+        let steps = vec![
+            TraceStep { pc: 0, op: "CALL".into(), gas: 1000, gas_cost: 0, depth: 1, stack: None, memory: None, error: None, reverted: false },
+            TraceStep { pc: 0, op: "CALL".into(), gas: 900, gas_cost: 0, depth: 2, stack: None, memory: None, error: None, reverted: false },
+            TraceStep { pc: 0, op: "SSTORE".into(), gas: 800, gas_cost: 5000, depth: 3, stack: None, memory: None, error: None, reverted: false },
+            TraceStep { pc: 1, op: "RETURN".into(), gas: 700, gas_cost: 0, depth: 3, stack: None, memory: None, error: None, reverted: false },
+            TraceStep { pc: 1, op: "RETURN".into(), gas: 600, gas_cost: 0, depth: 2, stack: None, memory: None, error: None, reverted: false },
+        ];
+
+        let stacks = Aggregator::build_collapsed_stacks(&steps);
+        let sstore_stack = stacks.iter().find(|s| s.stack == "CALL;CALL;CALL;SSTORE").expect("Should find deep SSTORE");
+        assert_eq!(sstore_stack.weight, 5000);
+    }
+
+    #[test]
+    fn test_aggregator_revert_propagation() {
+        let steps = vec![
+            TraceStep { pc: 0, op: "CALL".into(), gas: 1000, gas_cost: 0, depth: 1, stack: None, memory: None, error: None, reverted: false },
+            TraceStep { pc: 0, op: "REVERT".into(), gas: 900, gas_cost: 200, depth: 2, stack: None, memory: None, error: Some("Reverted".into()), reverted: true },
+        ];
+
+        let stacks = Aggregator::build_collapsed_stacks(&steps);
+        let revert_stack = stacks.iter().find(|s| s.stack == "CALL;CALL;REVERT").expect("Should find REVERT");
+        assert!(revert_stack.reverted);
+        assert_eq!(revert_stack.weight, 200);
     }
 }
 

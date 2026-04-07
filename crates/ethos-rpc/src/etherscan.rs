@@ -8,7 +8,7 @@ use std::time::Duration;
 #[derive(Deserialize, Debug)]
 struct EtherscanResponse {
     status: String,
-    message: String,
+    _message: String,
     result: Vec<EtherscanContractItem>,
 }
 

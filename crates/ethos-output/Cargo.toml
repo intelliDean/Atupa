@@ -11,5 +11,6 @@ ethos-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
+askama = { workspace = true }
 log = { workspace = true }
 # SVG generation logic will be here
