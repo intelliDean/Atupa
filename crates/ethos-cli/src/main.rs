@@ -58,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
                     TraceStep { pc: 1, op: "SSTORE".into(), gas: 480, gas_cost: 20000, depth: 2, stack: None, memory: None },
                     TraceStep { pc: 2, op: "RETURN".into(), gas: 400, gas_cost: 0, depth: 2, stack: None, memory: None },
                     TraceStep { pc: 2, op: "STOP".into(), gas: 300, gas_cost: 0, depth: 1, stack: None, memory: None },
-                ];
+                ]
             } else {
                 // 1. Fetch
                 let client = EthClient::new(rpc.to_string());
