@@ -10,28 +10,38 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  fmt:
+    name: Format Check
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Run fmt
+        run: cargo fmt --all -- --check
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: rustfmt, clippy
+  clippy:
+    name: Lint (Clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-    - name: Rust Cache
-      uses: Swatinem/rust-cache@v2
-
-    - name: Format Check
-      run: cargo fmt --all -- --check
-
-    - name: Cargo Check
-      run: cargo check --workspace
-
-    - name: Run tests
-      run: cargo test --workspace
-
-    - name: Lints (Clippy)
-      run: cargo clippy --workspace -- -D warnings
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Cargo Check
+        run: cargo check --workspace
+      - name: Run tests
+        run: cargo test --workspace
