@@ -46,9 +46,9 @@ figment = { version = "0.10.19", features = ["toml", "env"] }
 toml = "1.1.2"
 
 # Internal Workspace
-atupa = { path = "crates/atupa" }
-atupa-rpc = { path = "crates/atupa-rpc" }
-atupa-parser = { path = "crates/atupa-parser" }
-atupa-core = { path = "crates/atupa-core" }
-atupa-adapters = { path = "crates/atupa-adapters" }
-atupa-output = { path = "crates/atupa-output" }
+atupa = { path = "crates/atupa", version = "0.1.0" }
+atupa-rpc = { path = "crates/atupa-rpc", version = "0.1.0" }
+atupa-parser = { path = "crates/atupa-parser", version = "0.1.0" }
+atupa-core = { path = "crates/atupa-core", version = "0.1.0" }
+atupa-adapters = { path = "crates/atupa-adapters", version = "0.1.0" }
+atupa-output = { path = "crates/atupa-output", version = "0.1.0" }
