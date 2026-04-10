@@ -204,6 +204,7 @@ name = "atupa-parser"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "atupa-adapters",
  "atupa-core",
  "atupa-rpc",
  "log",

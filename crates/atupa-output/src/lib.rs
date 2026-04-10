@@ -43,7 +43,9 @@ impl SvgGenerator {
             let leaf_name = stack.stack.split(';').last().unwrap_or("unknown");
             
             let mut label = format!("{} ({} gas)", leaf_name, stack.weight);
-            if let Some(addr) = &stack.target_address {
+            if let Some(r_label) = &stack.resolved_label {
+                label = format!("{} ({} gas)", r_label, stack.weight);
+            } else if let Some(addr) = &stack.target_address {
                 label = format!("{} [{}] ({} gas)", leaf_name, addr, stack.weight);
             }
             if stack.reverted {

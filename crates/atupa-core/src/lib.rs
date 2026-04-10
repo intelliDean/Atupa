@@ -51,6 +51,8 @@ pub struct CollapsedStack {
     #[serde(default)]
     pub target_address: Option<String>,
     #[serde(default)]
+    pub resolved_label: Option<String>,
+    #[serde(default)]
     pub reverted: bool,
 }
 
