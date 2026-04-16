@@ -280,6 +280,7 @@ dependencies = [
  "atupa-adapters",
  "atupa-core",
  "atupa-lido",
+ "atupa-nitro",
  "atupa-output",
  "atupa-parser",
  "atupa-rpc",

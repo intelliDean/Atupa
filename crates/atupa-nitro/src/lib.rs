@@ -96,6 +96,8 @@ pub struct UnifiedStep {
 pub struct StitchedReport {
     /// The transaction hash that was traced.
     pub tx_hash: String,
+    /// The chain ID of the network being traced.
+    pub chain_id: u64,
     /// Merged, time-ordered execution steps across both VMs.
     pub steps: Vec<UnifiedStep>,
     /// Total EVM gas consumed across all steps.
@@ -167,6 +169,7 @@ impl MixedTraceStitcher {
     /// 6. Aggregate totals and build the `StitchedReport`.
     pub fn stitch(
         tx_hash: impl Into<String>,
+        chain_id: u64,
         evm_logs: Vec<RawStructLog>,
         stylus_logs: Vec<StylusHostIO>,
     ) -> StitchedReport {
@@ -193,10 +196,11 @@ impl MixedTraceStitcher {
                 gas_cost,
                 cost_equiv: gas_cost as f64,
                 depth,
-                is_vm_boundary: is_boundary,
+                is_vm_boundary: false, // Will be set to true if subsequent HostIOs are found
                 evm: Some(log),
                 stylus: None,
             });
+            let call_step_index = index;
             index += 1;
 
             if !is_boundary {
@@ -205,7 +209,6 @@ impl MixedTraceStitcher {
 
             // ── WASM Window ──────────────────────────────────────────────────
             // Drain Stylus HostIOs that belong to this boundary frame.
-            vm_boundary_count += 1;
             let mut window_host_io_count: usize = 0;
 
             loop {
@@ -240,6 +243,11 @@ impl MixedTraceStitcher {
                 });
                 index += 1;
             }
+
+            if window_host_io_count > 0 {
+                vm_boundary_count += 1;
+                steps[call_step_index].is_vm_boundary = true;
+            }
         }
 
         // ── Trailing Stylus Steps ────────────────────────────────────────────
@@ -268,6 +276,7 @@ impl MixedTraceStitcher {
 
         StitchedReport {
             tx_hash,
+            chain_id,
             steps,
             total_evm_gas,
             total_stylus_ink,
@@ -337,13 +346,29 @@ impl NitroClient {
     /// or an older node version), the error is silently downgraded and the report
     /// will contain only EVM steps with `total_stylus_ink = 0`.
     pub async fn trace_transaction(&self, tx_hash: &str) -> Result<StitchedReport, NitroError> {
-        log::info!("atupa-nitro: fetching unified trace for {}", tx_hash);
+        let chain_id = self.base_client.get_chain_id().await.unwrap_or(0);
+        
+        let is_nitro = match chain_id {
+            // Known Arbitrum / Nitro chains
+            42161 | 42170 | 421611 | 421613 | 421614 | 23011913 => true,
+            // Local devnets often used for Nitro
+            1337 | 31337 => true,
+            // Known non-Nitro chains (skip tracer)
+            1 | 11155111 | 17000 | 8453 | 84532 | 10 | 11155420 | 137 => false,
+            // Unknown – try it but don't fail hard
+            _ => true,
+        };
 
-        // Fire both RPC calls in parallel to cut latency by ~50%.
-        let (evm_result, stylus_result) = tokio::join!(
-            self.base_client.get_transaction_trace(tx_hash),
-            self.get_stylus_trace(tx_hash),
-        );
+        log::info!("atupa-nitro: fetching trace for {} (chain_id: {}, nitro_aware: {})", tx_hash, chain_id, is_nitro);
+
+        let (evm_result, stylus_result) = if is_nitro {
+            tokio::join!(
+                self.base_client.get_transaction_trace(tx_hash),
+                self.get_stylus_trace(tx_hash),
+            )
+        } else {
+            (self.base_client.get_transaction_trace(tx_hash).await, Ok(Vec::new()))
+        };
 
         let evm_trace = evm_result?;
         let stylus_trace = stylus_result.unwrap_or_else(|e| {
@@ -355,11 +380,12 @@ impl NitroClient {
             Vec::new()
         });
 
-        let report = MixedTraceStitcher::stitch(tx_hash, evm_trace.struct_logs, stylus_trace);
+        let report = MixedTraceStitcher::stitch(tx_hash, chain_id, evm_trace.struct_logs, stylus_trace);
 
         log::info!(
-            "atupa-nitro: {} steps stitched | EVM gas: {} | Stylus ink: {} ({:.2} gas-equiv) | boundaries: {}",
+            "atupa-nitro: {} steps stitched | network: {} | EVM gas: {} | Stylus ink: {} ({:.2} gas-equiv) | boundaries: {}",
             report.steps.len(),
+            chain_id,
             report.total_evm_gas,
             report.total_stylus_ink,
             report.total_stylus_gas_equiv,
@@ -404,7 +430,7 @@ mod tests {
     #[test]
     fn pure_evm_produces_no_stylus_steps() {
         let logs = vec![evm("PUSH1", 3, 1), evm("ADD", 3, 1), evm("RETURN", 0, 1)];
-        let report = MixedTraceStitcher::stitch("0xabc", logs, vec![]);
+        let report = MixedTraceStitcher::stitch("0xabc", 1, logs, vec![]);
 
         assert_eq!(report.steps.len(), 3);
         assert_eq!(report.vm_boundary_count, 0);
@@ -425,7 +451,7 @@ mod tests {
             host_io("storage_load_bytes32", 900_000, 800_000), // 100k ink
         ];
 
-        let report = MixedTraceStitcher::stitch("0xdef", evm_logs, stylus_logs);
+        let report = MixedTraceStitcher::stitch("0xdef", 42161, evm_logs, stylus_logs);
 
         // 3 EVM + 2 Stylus = 5 total
         assert_eq!(report.steps.len(), 5);
@@ -447,7 +473,7 @@ mod tests {
             host_io("user_entrypoint", 300_000, 200_000), // window 2: 100k ink
         ];
 
-        let report = MixedTraceStitcher::stitch("0x111", evm_logs, stylus_logs);
+        let report = MixedTraceStitcher::stitch("0x111", 42161, evm_logs, stylus_logs);
 
         assert_eq!(report.vm_boundary_count, 2);
         assert_eq!(report.stylus_steps().len(), 2);
@@ -462,6 +488,7 @@ mod tests {
         // No EVM CALL — the outer frame IS the Stylus contract.
         let report = MixedTraceStitcher::stitch(
             "0x999",
+            42161,
             vec![],
             vec![host_io("user_entrypoint", 1_000_000, 900_000)],
         );
@@ -479,9 +506,25 @@ mod tests {
 
     #[test]
     fn boundary_steps_filter_returns_only_calls() {
+        // Without any HostIO steps, a CALL must NOT be marked as a VM boundary.
+        // (Pure-EVM transactions have no Stylus crossing — no false positives.)
         let evm_logs = vec![evm("ADD", 3, 1), evm("CALL", 100, 1)];
-        let report = MixedTraceStitcher::stitch("0xfff", evm_logs, vec![]);
-        assert_eq!(report.boundary_steps().len(), 1);
-        assert_eq!(report.boundary_steps()[0].label, "CALL");
+        let report = MixedTraceStitcher::stitch("0xfff", 42161, evm_logs, vec![]);
+        assert_eq!(
+            report.boundary_steps().len(),
+            0,
+            "CALL without Stylus steps should not be a boundary"
+        );
+
+        // With HostIO steps present, the CALL that precedes them IS a boundary.
+        let evm_logs2 = vec![evm("ADD", 3, 1), evm("CALL", 100, 1)];
+        let stylus_steps = vec![host_io("user_entrypoint", 100_000, 90_000)];
+        let report2 = MixedTraceStitcher::stitch("0xfff", 42161, evm_logs2, stylus_steps);
+        assert_eq!(
+            report2.boundary_steps().len(),
+            1,
+            "CALL before Stylus steps should be a boundary"
+        );
+        assert_eq!(report2.boundary_steps()[0].label, "CALL");
     }
 }

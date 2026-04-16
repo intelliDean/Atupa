@@ -52,10 +52,11 @@ pub use profile::execute_profile;
 /// High-level profile execution logic, usable independently from the CLI.
 pub mod profile {
     use anyhow::Result;
-    use atupa_core::TraceStep;
+    use atupa_core::{CollapsedStack, VmKind};
+    use atupa_nitro::{NitroClient, VmKind as NitroVmKind};
     use atupa_output::SvgGenerator;
     use atupa_parser::{Parser as AtupaParser, aggregator::Aggregator};
-    use atupa_rpc::{EthClient, etherscan::EtherscanResolver};
+    use atupa_rpc::etherscan::EtherscanResolver;
     use indicatif::{ProgressBar, ProgressStyle};
     use std::{fs, time::Duration};
 
@@ -70,40 +71,102 @@ pub mod profile {
         is_demo: bool,
         out: Option<String>,
         etherscan_key: Option<String>,
-    ) -> Result<()> {
+    ) -> Result<(String, String)> {
         let pb = make_spinner();
 
         // 1. Fetch ─────────────────────────────────────────────────────────────
-        let steps: Vec<TraceStep> = if is_demo {
-            demo_trace(&pb)
+        let (mut stacks, network_name) = if is_demo {
+            pb.set_message("Generating offline demo trace…");
+            (demo_stacks(), "Demo".to_string())
         } else {
-            fetch_live(&pb, tx, rpc).await?
+            pb.set_message("Detecting network and fetching execution trace…");
+            let client = NitroClient::new(rpc.to_string());
+            let report = tokio::time::timeout(
+                Duration::from_secs(30),
+                client.trace_transaction(tx),
+            )
+            .await
+            .map_err(|_| anyhow::anyhow!("RPC timed out after 30s — is the node reachable at {rpc}?"))?
+            .map_err(|e| anyhow::anyhow!("RPC error: {e}"))?;
+
+            let network = get_network_name(report.chain_id);
+            let evm_count = report.steps.iter().filter(|s| s.vm == NitroVmKind::Evm).count();
+            let wasm_count = report.steps.iter().filter(|s| s.vm == NitroVmKind::Stylus).count();
+            pb.set_message(format!(
+                "Processing {evm_count} EVM + {wasm_count} Stylus steps from {network}…"
+            ));
+
+            // Build EVM collapsed stacks from raw EVM structLogs
+            let evm_raw: Vec<_> = report
+                .steps
+                .iter()
+                .filter_map(|s| s.evm.clone())
+                .collect();
+            let evm_trace_steps = AtupaParser::normalize(
+                evm_raw.iter().cloned().collect(),
+            );
+            let mut evm_stacks = Aggregator::build_collapsed_stacks(&evm_trace_steps);
+
+            // Etherscan resolution on EVM stacks
+            pb.set_message("Resolving contract names via Etherscan…");
+            let resolver = EtherscanResolver::new(etherscan_key, report.chain_id);
+            for stack in &mut evm_stacks {
+                if let Some(addr) = &stack.target_address
+                    && let Some(name) = resolver.resolve_contract_name(addr).await
+                {
+                    stack.target_address = Some(name);
+                }
+            }
+
+            // Build Stylus collapsed stacks from HostIO steps
+            let stylus_stacks: Vec<CollapsedStack> = report
+                .steps
+                .iter()
+                .filter(|s| s.vm == NitroVmKind::Stylus)
+                .filter_map(|s| s.stylus.as_ref())
+                .map(|hostio| CollapsedStack {
+                    stack: hostio.name.clone(),
+                    weight: hostio.ink_consumed() / 10_000, // ink → gas-equiv weight
+                    last_pc: None,
+                    depth: 1,
+                    vm_kind: VmKind::Stylus,
+                    target_address: None,
+                    resolved_label: Some(format!(
+                        "{} ({:.2} gas-equiv)",
+                        hostio.name,
+                        hostio.ink_as_gas_equiv()
+                    )),
+                    reverted: false,
+                })
+                .collect();
+
+            // Merge: EVM first, then WASM (painter's order)
+            let mut combined = evm_stacks;
+            combined.extend(stylus_stacks);
+
+            (combined, network)
         };
 
-        // 2. Aggregate ─────────────────────────────────────────────────────────
-        pb.set_message("Aggregating execution metrics…");
-        let mut stacks = Aggregator::build_collapsed_stacks(&steps);
+        // Sort EVM stacks descending by weight; Stylus stacks come after
+        let evm_end = stacks.partition_point(|s| s.vm_kind == VmKind::Evm);
+        stacks[..evm_end].sort_by(|a, b| b.weight.cmp(&a.weight));
 
-        // 3. Etherscan resolution ───────────────────────────────────────────────
-        pb.set_message("Resolving contract names via Etherscan…");
-        let resolver = EtherscanResolver::new(etherscan_key);
-        for stack in &mut stacks {
-            if let Some(addr) = &stack.target_address
-                && let Some(name) = resolver.resolve_contract_name(addr).await
-            {
-                stack.target_address = Some(name);
-            }
-        }
-
-        // 4. Render + save ─────────────────────────────────────────────────────
+        // 2. Render + save ─────────────────────────────────────────────────────
         pb.set_message("Generating SVG flamegraph…");
         let svg = SvgGenerator::generate_flamegraph(&stacks)?;
-        let out_path =
-            out.unwrap_or_else(|| format!("profile_{}.svg", if is_demo { "demo" } else { tx }));
+        let out_path = out.unwrap_or_else(|| {
+            if is_demo {
+                "profile_demo.svg".to_string()
+            } else {
+                // Shorten to first 10 hex chars after 0x
+                let short = tx.trim_start_matches("0x").get(..10).unwrap_or(tx);
+                format!("profile_{short}.svg")
+            }
+        });
         fs::write(&out_path, svg)?;
 
         pb.finish_with_message(format!("✔ Profile saved → {out_path}"));
-        Ok(())
+        Ok((out_path, network_name))
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -119,98 +182,120 @@ pub mod profile {
         pb
     }
 
-    async fn fetch_live(pb: &ProgressBar, tx: &str, rpc: &str) -> Result<Vec<TraceStep>> {
-        pb.set_message("Connecting to EVM node via JSON-RPC…");
-        let client = EthClient::new(rpc.to_string());
-
-        let raw = tokio::time::timeout(Duration::from_secs(30), client.get_transaction_trace(tx))
-            .await
-            .map_err(|_| {
-                anyhow::anyhow!("RPC timed out after 30 s — is the node reachable at {rpc}?")
-            })?
-            .map_err(|e| anyhow::anyhow!("RPC error: {e}\nHint: is your node running at {rpc}?"))?;
-
-        pb.set_message(format!("Normalizing {} structLogs…", raw.struct_logs.len()));
-        Ok(AtupaParser::normalize(raw.struct_logs))
+    fn get_network_name(chain_id: u64) -> String {
+        match chain_id {
+            1 => "Ethereum Mainnet".to_string(),
+            11155111 => "Sepolia Testnet".to_string(),
+            42161 => "Arbitrum One".to_string(),
+            42170 => "Arbitrum Nova".to_string(),
+            421614 => "Arbitrum Sepolia".to_string(),
+            8453 => "Base Mainnet".to_string(),
+            84532 => "Base Sepolia".to_string(),
+            10 => "Optimism".to_string(),
+            137 => "Polygon POS".to_string(),
+            0 => "Unknown Network".to_string(),
+            id => format!("Chain ID: {id}"),
+        }
     }
 
-    fn demo_trace(pb: &ProgressBar) -> Vec<TraceStep> {
-        pb.set_message("Generating offline demo trace…");
+    /// A rich offline demo trace showcasing nested calls, reverts, and simulated Stylus steps.
+    fn demo_stacks() -> Vec<CollapsedStack> {
         vec![
-            TraceStep {
-                pc: 0,
-                op: "PUSH1".into(),
-                gas: 1_000_000,
-                gas_cost: 3,
+            // ── Root frame ops (depth 1) ────────────────────────────────────
+            CollapsedStack {
+                stack: "CALL".to_string(),
+                weight: 21_000,
+                last_pc: Some(0),
                 depth: 1,
-                stack: None,
-                memory: None,
-                error: None,
+                vm_kind: VmKind::Evm,
+                target_address: None,
+                resolved_label: Some("Root CALL (21,000 gas)".to_string()),
                 reverted: false,
             },
-            TraceStep {
-                pc: 1,
-                op: "CALL".into(),
-                gas: 999_997,
-                gas_cost: 2_600,
-                depth: 1,
-                stack: Some(vec![
-                    "0x0000000000000000000000000000000000000000".into(),
-                    "0x0000000000000000000000000000000000000000".into(),
-                    "0x0000000000000000000000000000000000000000".into(),
-                    "0x0000000000000000000000000000000000000100".into(),
-                    "0x0000000000000000000000000000000000000000".into(),
-                    "0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".into(), // USDC
-                    "0x10000".into(),
-                ]),
-                memory: None,
-                error: None,
-                reverted: false,
-            },
-            TraceStep {
-                pc: 0,
-                op: "SLOAD".into(),
-                gas: 500,
-                gas_cost: 2_100,
+            CollapsedStack {
+                stack: "CALL;SLOAD".to_string(),
+                weight: 2_100,
+                last_pc: Some(10),
                 depth: 2,
-                stack: None,
-                memory: None,
-                error: None,
+                vm_kind: VmKind::Evm,
+                target_address: None,
+                resolved_label: Some("Storage Read (2,100 gas)".to_string()),
                 reverted: false,
             },
-            TraceStep {
-                pc: 1,
-                op: "SSTORE".into(),
-                gas: 480,
-                gas_cost: 20_000,
+            CollapsedStack {
+                stack: "CALL;SSTORE".to_string(),
+                weight: 20_000,
+                last_pc: Some(14),
                 depth: 2,
-                stack: None,
-                memory: None,
-                error: None,
+                vm_kind: VmKind::Evm,
+                target_address: None,
+                resolved_label: Some("Storage Write (20,000 gas)".to_string()),
                 reverted: false,
             },
-            TraceStep {
-                pc: 2,
-                op: "REVERT".into(),
-                gas: 400,
-                gas_cost: 5_000,
+            // ── Nested sub-call (depth 2 → 3) ──────────────────────────────
+            CollapsedStack {
+                stack: "CALL;CALL;KECCAK256".to_string(),
+                weight: 30,
+                last_pc: Some(20),
+                depth: 3,
+                vm_kind: VmKind::Evm,
+                target_address: Some("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string()),
+                resolved_label: Some("USDC: KECCAK256 (30 gas)".to_string()),
+                reverted: false,
+            },
+            CollapsedStack {
+                stack: "CALL;CALL;SLOAD".to_string(),
+                weight: 2_100,
+                last_pc: Some(24),
+                depth: 3,
+                vm_kind: VmKind::Evm,
+                target_address: None,
+                resolved_label: Some("Nested SLOAD (2,100 gas)".to_string()),
+                reverted: false,
+            },
+            // ── Reverted sub-call (depth 2) ─────────────────────────────────
+            CollapsedStack {
+                stack: "CALL;REVERT".to_string(),
+                weight: 5_000,
+                last_pc: Some(40),
                 depth: 2,
-                stack: None,
-                memory: None,
-                error: None,
+                vm_kind: VmKind::Evm,
+                target_address: None,
+                resolved_label: Some("REVERTED sub-call (5,000 gas)".to_string()),
                 reverted: true,
             },
-            TraceStep {
-                pc: 2,
-                op: "STOP".into(),
-                gas: 300,
-                gas_cost: 0,
+            // ── Simulated Stylus WASM steps ─────────────────────────────────
+            CollapsedStack {
+                stack: "storage_load_bytes32".to_string(),
+                weight: 421,
+                last_pc: None,
                 depth: 1,
-                stack: None,
-                memory: None,
-                error: None,
+                vm_kind: VmKind::Stylus,
+                target_address: None,
+                resolved_label: Some("storage_load_bytes32 (4,215 ink → 0.42 gas-equiv)".to_string()),
+                reverted: false,
+            },
+            CollapsedStack {
+                stack: "storage_flush_cache".to_string(),
+                weight: 4_001,
+                last_pc: None,
+                depth: 1,
+                vm_kind: VmKind::Stylus,
+                target_address: None,
+                resolved_label: Some("storage_flush_cache (40,010 ink → 4.00 gas-equiv)".to_string()),
+                reverted: false,
+            },
+            CollapsedStack {
+                stack: "native_keccak256".to_string(),
+                weight: 4,
+                last_pc: None,
+                depth: 1,
+                vm_kind: VmKind::Stylus,
+                target_address: None,
+                resolved_label: Some("native_keccak256 (36 ink → 0.004 gas-equiv)".to_string()),
                 reverted: false,
             },
         ]
     }
 }
+

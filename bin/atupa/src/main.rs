@@ -221,9 +221,25 @@ async fn cmd_profile(
     eprintln!("{} {}", "→ Profiling:".bold(), display.cyan());
     eprintln!("{} {}\n", "→ Endpoint: ".bold(), rpc.dimmed());
 
-    atupa::execute_profile(tx, rpc, demo, out, etherscan_key)
+    let (out_path, network) = atupa::execute_profile(tx, rpc, demo, out, etherscan_key)
         .await
-        .context("Profile command failed")
+        .context("Profile command failed")?;
+
+    eprintln!();
+    eprintln!(
+        "  {} ({})",
+        "PROFILE COMPLETE".bold().underline(),
+        network.cyan()
+    );
+    let div = "─".repeat(40).dimmed().to_string();
+    eprintln!("{div}");
+    eprintln!(
+        "  {:<24} {}",
+        "SVG saved to:".bold(),
+        out_path.green().bold()
+    );
+    eprintln!("{div}");
+    Ok(())
 }
 
 // ─── Capture Command ──────────────────────────────────────────────────────────
@@ -239,19 +255,25 @@ async fn cmd_capture(
     eprintln!("{} {}\n", "→ Endpoint:   ".bold(), rpc.dimmed());
 
     // Phase 1: fetch ──────────────────────────────────────────────────────────
-    let pb = spinner("Fetching dual-VM traces from Arbitrum Nitro…");
+    let pb = spinner("Detecting network and fetching execution trace…");
     let client = NitroClient::new(rpc.to_string());
-
+ 
     let report = client
         .trace_transaction(&tx)
         .await
-        .context("Failed to fetch trace — is the Arbitrum node running?")?;
-
+        .context("Failed to fetch trace — ensure the RPC endpoint is valid and accessible.")?;
+ 
+    let network_name = get_network_name(report.chain_id);
     pb.finish_with_message(format!(
-        "{} Fetched {} EVM steps + {} Stylus HostIOs",
+        "{} Captured trace from {} ({} EVM steps{} )",
         "✔".green().bold(),
+        network_name.cyan().bold(),
         evm_count(&report).to_string().green(),
-        report.stylus_steps().len().to_string().yellow(),
+        if report.total_stylus_ink > 0 {
+            format!(" + {} Stylus HostIOs", report.stylus_steps().len().to_string().yellow())
+        } else {
+            "".into()
+        }
     ));
 
     // Phase 2: render ─────────────────────────────────────────────────────────
@@ -582,7 +604,11 @@ fn render_capture_summary(report: &StitchedReport) -> String {
     let div = "─".repeat(56).dimmed().to_string();
     let mut out = String::new();
 
-    out += &format!("{}\n", "  UNIFIED EXECUTION SUMMARY".bold().underline());
+    out += &format!(
+        "  {} ({})\n",
+        "UNIFIED EXECUTION SUMMARY".bold().underline(),
+        get_network_name(report.chain_id).cyan()
+    );
     out += &format!("{div}\n");
 
     out += &format!(
@@ -590,54 +616,71 @@ fn render_capture_summary(report: &StitchedReport) -> String {
         "EVM Trace Gas (Total):".bold(),
         report.total_evm_gas.to_string().green()
     );
+
+    if report.total_stylus_ink > 0 {
+        out += &format!(
+            "  {:<34} {}\n",
+            "Stylus Ink (raw):".bold(),
+            report.total_stylus_ink.to_string().yellow()
+        );
+        out += &format!(
+            "  {:<34} {}\n",
+            "  → Gas-equivalent (÷10,000):".dimmed(),
+            format!("{:.2}", report.total_stylus_gas_equiv).yellow()
+        );
+    }
+
+    if report.vm_boundary_count > 0 {
+        out += &format!(
+            "  {:<34} {}\n",
+            "VM Boundaries (EVM ↔ WASM):".bold(),
+            report.vm_boundary_count.to_string().magenta()
+        );
+    }
+
+    out += &format!("{div}\n");
     out += &format!(
         "  {:<34} {}\n",
-        "Stylus Ink (raw):".bold(),
-        report.total_stylus_ink.to_string().yellow()
-    );
-    out += &format!(
-        "  {:<34} {}\n",
-        "  → Gas-equivalent (÷10,000):".dimmed(),
-        format!("{:.2}", report.total_stylus_gas_equiv).yellow()
+        "TOTAL UNIFIED COST:".bold().cyan(),
+        format!("{:.2} gas", report.total_unified_cost).cyan().bold()
     );
     out += &format!("{div}\n");
 
+    // EVM step count always shown
     out += &format!(
         "  {:<34} {}\n",
         "EVM Steps:".bold(),
         evm_count(report).to_string().green()
     );
-    out += &format!(
-        "  {:<34} {}\n",
-        "Stylus HostIO Steps:".bold(),
-        report.stylus_steps().len().to_string().yellow()
-    );
-    out += &format!(
-        "  {:<34} {}\n",
-        "VM Boundary Crossings (EVM→WASM):".bold(),
-        report.vm_boundary_count.to_string().cyan().bold()
-    );
-    out += &format!("{div}\n");
 
-    // EVM→WASM boundary detail
-    if report.vm_boundary_count > 0 {
-        out += &format!("  {}\n", "EVM→WASM Boundary Crossings:".bold());
-        for (i, step) in report.boundary_steps().iter().take(5).enumerate() {
-            out += &format!(
-                "    {}  {} at depth {}\n",
-                format!("[{}]", i + 1).cyan(),
-                step.label.bold(),
-                step.depth.to_string().dimmed()
-            );
-        }
-        if report.vm_boundary_count > 5 {
-            out += &format!(
-                "    … and {} more\n",
-                (report.vm_boundary_count - 5).to_string().dimmed()
-            );
+    // Only show Stylus/WASM details if they exist
+    if !report.stylus_steps().is_empty() {
+        out += &format!(
+            "  {:<34} {}\n",
+            "Stylus HostIO Steps:".bold(),
+            report.stylus_steps().len().to_string().yellow()
+        );
+
+        if report.vm_boundary_count > 0 {
+            out += &format!("  {}\n", "EVM→WASM Boundary Details:".bold());
+            for (i, step) in report.boundary_steps().iter().take(5).enumerate() {
+                out += &format!(
+                    "    {}  {} at depth {}\n",
+                    format!("[{}]", i + 1).cyan(),
+                    step.label.bold(),
+                    step.depth.to_string().dimmed()
+                );
+            }
+            if report.vm_boundary_count > 5 {
+                out += &format!(
+                    "    … and {} more\n",
+                    (report.vm_boundary_count - 5).to_string().dimmed()
+                );
+            }
         }
         out += &format!("{div}\n");
     }
+
 
     // Top Stylus ink consumers
     let stylus = report.stylus_steps();
@@ -816,3 +859,23 @@ fn spinner(msg: &str) -> ProgressBar {
     pb.set_message(msg.to_string());
     pb
 }
+
+fn get_network_name(chain_id: u64) -> String {
+    match chain_id {
+        1 => "Ethereum Mainnet".to_string(),
+        11155111 => "Sepolia Testnet".to_string(),
+        17000 => "Holesky Testnet".to_string(),
+        42161 => "Arbitrum One".to_string(),
+        42170 => "Arbitrum Nova".to_string(),
+        421614 => "Arbitrum Sepolia".to_string(),
+        8453 => "Base Mainnet".to_string(),
+        84532 => "Base Sepolia".to_string(),
+        10 => "Optimism".to_string(),
+        11155420 => "Optimism Sepolia".to_string(),
+        137 => "Polygon POS".to_string(),
+        1337 | 31337 => "Local Devnet".to_string(),
+        0 => "Unknown Network".to_string(),
+        id => format!("Chain ID: {}", id),
+    }
+}
+

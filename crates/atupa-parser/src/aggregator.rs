@@ -1,4 +1,4 @@
-use atupa_core::{CollapsedStack, TraceStep};
+use atupa_core::{CollapsedStack, TraceStep, VmKind};
 use log::debug;
 use std::collections::HashMap;
 
@@ -24,6 +24,7 @@ impl Aggregator {
         struct AggregatedData {
             total_gas: u64,
             _last_pc: u64,
+            max_depth: u16,
             target_address: Option<String>,
             resolved_label: Option<String>,
             reverted: bool,
@@ -65,10 +66,9 @@ impl Aggregator {
                         // Extract target address (second item from top)
                         let hex_addr = &stack[stack.len() - 2];
                         let clean_hex = hex_addr.trim_start_matches("0x");
-                        if clean_hex.len() >= 40 {
-                            let extracted = &clean_hex[clean_hex.len() - 40..];
-                            target_address = Some(format!("0x{}", extracted));
-                        }
+                        let padded = format!("{:0>40}", clean_hex);
+                        let extracted = &padded[padded.len() - 40..];
+                        target_address = Some(format!("0x{}", extracted)); 
                     }
 
                     // Attempt to extract the 4-byte selector from Memory using Offset & Length
@@ -146,12 +146,16 @@ impl Aggregator {
             let entry = stack_map.entry(stack_str).or_insert(AggregatedData {
                 total_gas: 0,
                 _last_pc: 0,
+                max_depth: 0,
                 target_address: None,
                 resolved_label: None,
                 reverted: false,
             });
             entry.total_gas += step.gas_cost;
             entry._last_pc = step.pc;
+            if step.depth > entry.max_depth {
+                entry.max_depth = step.depth;
+            }
             if target_address.is_some() {
                 entry.target_address = target_address;
             }
@@ -169,6 +173,8 @@ impl Aggregator {
                 stack,
                 weight: data.total_gas,
                 last_pc: Some(data._last_pc),
+                depth: data.max_depth,
+                vm_kind: VmKind::Evm,
                 target_address: data.target_address,
                 resolved_label: data.resolved_label,
                 reverted: data.reverted,

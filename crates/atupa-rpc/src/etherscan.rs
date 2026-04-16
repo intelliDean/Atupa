@@ -8,7 +8,6 @@ use tokio::sync::Mutex;
 #[derive(Deserialize, Debug)]
 struct EtherscanResponse {
     status: String,
-    _message: String,
     result: Vec<EtherscanContractItem>,
 }
 
@@ -24,16 +23,17 @@ pub struct EtherscanResolver {
     client: Client,
     pub cache: Arc<Mutex<HashMap<String, String>>>,
     api_key: Option<String>,
+    chain_id: u64,
 }
 
 impl Default for EtherscanResolver {
     fn default() -> Self {
-        Self::new(None)
+        Self::new(None, 1) // Default to Ethereum mainnet if not specified
     }
 }
 
 impl EtherscanResolver {
-    pub fn new(api_key: Option<String>) -> Self {
+    pub fn new(api_key: Option<String>, chain_id: u64) -> Self {
         Self {
             client: Client::builder()
                 .timeout(Duration::from_secs(5))
@@ -41,6 +41,7 @@ impl EtherscanResolver {
                 .unwrap_or_default(),
             cache: Arc::new(Mutex::new(HashMap::new())),
             api_key,
+            chain_id,
         }
     }
 
@@ -61,8 +62,8 @@ impl EtherscanResolver {
 
         // Network fetch (Etherscan API V2 requires chainid)
         let mut url_str = format!(
-            "https://api.etherscan.io/v2/api?chainid=1&module=contract&action=getsourcecode&address={}",
-            address
+            "https://api.etherscan.io/v2/api?chainid={}&module=contract&action=getsourcecode&address={}",
+            self.chain_id, address
         );
         if let Some(key) = &self.api_key {
             url_str.push_str(&format!("&apikey={}", key));
@@ -77,12 +78,17 @@ impl EtherscanResolver {
                 match (api_res.status.as_str(), api_res.result.first()) {
                     ("1", Some(item)) if !item.contract_name.is_empty() => {
                         let name = item.contract_name.clone();
+                        log::info!("✅ Etherscan resolved {} -> {}", address, name);
                         let mut cache_lock = self.cache.lock().await;
                         cache_lock.insert(address.to_string(), name.clone());
                         return Some(name);
                     }
-                    _ => {}
+                    _ => {
+                        log::debug!("❌ Etherscan hit but no name for {}: {:?}", address, api_res);
+                    }
                 }
+            } else {
+                log::debug!("❌ Etherscan JSON parse failed for {}", address);
             }
         }
 

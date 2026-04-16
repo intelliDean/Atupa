@@ -21,6 +21,7 @@ atupa-adapters = { workspace = true }
 atupa-output   = { workspace = true }
 atupa-aave     = { workspace = true }
 atupa-lido     = { workspace = true }
+atupa-nitro    = { workspace = true }
 
 # Runtime deps needed by the high-level profile module
 tokio     = { workspace = true }

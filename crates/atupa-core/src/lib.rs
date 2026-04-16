@@ -42,12 +42,26 @@ pub struct TraceStep {
     pub reverted: bool,
 }
 
+/// Which virtual machine produced these execution steps.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum VmKind {
+    #[default]
+    Evm,
+    Stylus,
+}
+
 /// A single collapsed stack entry for aggregation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CollapsedStack {
     pub stack: String,
     pub weight: u64,
     pub last_pc: Option<u64>,
+    /// Maximum call depth seen for steps in this stack.
+    #[serde(default)]
+    pub depth: u16,
+    /// The VM that produced this collapsed stack.
+    #[serde(default)]
+    pub vm_kind: VmKind,
     #[serde(default)]
     pub target_address: Option<String>,
     #[serde(default)]

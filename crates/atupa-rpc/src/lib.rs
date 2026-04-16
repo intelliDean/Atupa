@@ -70,7 +70,7 @@ impl EthClient {
             tx_hash,
             {
                 "enableMemory": false,
-                "disableStack": true,
+                "disableStack": false,
                 "disableStorage": true
             }
         ]);
@@ -99,4 +99,37 @@ impl EthClient {
             .result
             .ok_or_else(|| RpcError::Node("Missing result in RPC response".to_string()))
     }
+
+    /// Fetch the chain ID from the node
+    pub async fn get_chain_id(&self) -> Result<u64, RpcError> {
+        let payload = json!({
+            "jsonrpc": "2.0",
+            "method": "eth_chainId",
+            "params": [],
+            "id": 1
+        });
+
+        let response = self
+            .client
+            .post(&self.rpc_url)
+            .json(&payload)
+            .send()
+            .await?;
+
+        let rpc_res: serde_json::Value = response.json().await?;
+
+        if let Some(err) = rpc_res.get("error") {
+            return Err(RpcError::Node(
+                err["message"].as_str().unwrap_or("Unknown").to_string(),
+            ));
+        }
+
+        let result = rpc_res["result"]
+            .as_str()
+            .ok_or_else(|| RpcError::Node("Missing result in eth_chainId response".to_string()))?;
+
+        u64::from_str_radix(result.trim_start_matches("0x"), 16)
+            .map_err(|e| RpcError::Node(format!("Invalid chainId hex: {}", e)))
+    }
 }
+

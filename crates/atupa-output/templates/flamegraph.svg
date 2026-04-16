@@ -1,22 +1,54 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {{ width }} {{ height }}" style="background-color:#0d1117">
-  <style>
-    .text { font-family: 'Inter', monospace; fill: #ffffff; font-size: 12px; pointer-events: none; }
-    .box { fill: url(#atupa-gradient); stroke: #1f2937; stroke-width: 1px; rx: 4px; }
-    .box-revert { fill: url(#revert-gradient); stroke: #7f1d1d; stroke-width: 1px; rx: 4px; }
-  </style>
   <defs>
-    <linearGradient id="atupa-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#0ea5e9" />
+    <!-- EVM gradient: sky-blue → indigo -->
+    <linearGradient id="grad-evm" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
       <stop offset="100%" stop-color="#4f46e5" />
     </linearGradient>
-    <linearGradient id="revert-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ef4444" />
+    <!-- WASM gradient: amber → orange -->
+    <linearGradient id="grad-wasm" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <!-- Revert gradient: red -->
+    <linearGradient id="grad-revert" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f87171" />
       <stop offset="100%" stop-color="#991b1b" />
     </linearGradient>
   </defs>
 
+  <style>
+    .label   { font-family: 'Inter', 'Roboto Mono', monospace; fill: #f1f5f9; font-size: 11px; dominant-baseline: middle; pointer-events: none; }
+    .legend  { font-family: 'Inter', 'Roboto Mono', monospace; fill: #94a3b8; font-size: 10px; dominant-baseline: middle; }
+    .sep-txt { font-family: 'Inter', 'Roboto Mono', monospace; fill: #f59e0b; font-size: 10px; font-weight: 600; dominant-baseline: middle; letter-spacing: 0.08em; }
+    .box-evm   { fill: url(#grad-evm);    stroke: #1e3a5f; stroke-width: 0.5; }
+    .box-wasm  { fill: url(#grad-wasm);   stroke: #78350f; stroke-width: 0.5; }
+    .box-revert{ fill: url(#grad-revert); stroke: #7f1d1d; stroke-width: 0.5; }
+  </style>
+
+  <!-- Legend row -->
+  <rect x="10" y="8" width="12" height="12" rx="2" class="box-evm" />
+  <text x="26" y="14" class="legend">EVM opcode</text>
+  {% if has_wasm %}
+  <rect x="108" y="8" width="12" height="12" rx="2" class="box-wasm" />
+  <text x="124" y="14" class="legend">Stylus / WASM</text>
+  {% endif %}
+  <rect x="238" y="8" width="12" height="12" rx="2" class="box-revert" />
+  <text x="254" y="14" class="legend">Reverted</text>
+
+  <!-- Flame bars -->
   {% for entry in stacks %}
-  <rect x="10" y="{{ entry.y }}" width="{{ entry.width }}" height="20" class="{{ entry.class }}" />
-  <text x="15" y="{{ entry.y + 14.0 }}" class="text">{{ entry.label }}</text>
+  {% if entry.is_wasm_section_start %}
+  <!-- WASM separator line -->
+  <line x1="10" y1="{{ entry.separator_y }}" x2="990" y2="{{ entry.separator_y }}" stroke="#f59e0b" stroke-width="0.5" stroke-dasharray="4 3" opacity="0.5"/>
+  <text x="10" y="{{ entry.separator_y + 10.0 }}" class="sep-txt">▼  STYLUS WASM  (Ink → Gas-Equiv)</text>
+  {% endif %}
+  <rect x="{{ entry.x }}" y="{{ entry.y }}" width="{{ entry.bar_width }}" height="26" rx="4" class="{{ entry.class }}">
+    <title>{{ entry.tooltip }}</title>
+  </rect>
+  {% if entry.label != "" %}
+  <text x="{{ entry.x + 6.0 }}" y="{{ entry.y + 13.0 }}" class="label">{{ entry.label }}</text>
+  {% endif %}
   {% endfor %}
+
 </svg>
