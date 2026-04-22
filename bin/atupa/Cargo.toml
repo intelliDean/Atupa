@@ -32,10 +32,14 @@ tokio = { workspace = true }
 serde      = { workspace = true }
 serde_json = { workspace = true }
 
-# Logging & UX
+# UX & Embedded
 anyhow    = { workspace = true }
 log         = { workspace = true }
 env_logger  = { workspace = true }
 colored     = { workspace = true }
 indicatif   = { workspace = true }
 open        = { workspace = true }
+axum        = { workspace = true }
+tower-http  = { workspace = true }
+rust-embed  = { workspace = true }
+mime_guess  = { workspace = true }

@@ -1,6 +1,6 @@
 pub mod aggregator;
 
-use atupa_core::TraceStep;
+use atupa_core::{TraceStep, VmKind};
 use atupa_rpc::RawStructLog;
 
 pub struct Parser;
@@ -22,7 +22,23 @@ impl Parser {
                     memory: log.memory,
                     error: log.error,
                     reverted,
+                    vm_kind: VmKind::Evm,
                 }
+            })
+            .collect()
+    }
+
+    /// Pass-through for steps that are already normalized (e.g. the unified
+    /// `UnifiedStep` timeline from `atupa-nitro`). Applies the same revert
+    /// detection logic so the Aggregator sees consistent flags.
+    pub fn normalize_raw(steps: Vec<TraceStep>) -> Vec<TraceStep> {
+        steps
+            .into_iter()
+            .map(|mut step| {
+                if step.error.is_some() || step.op == "REVERT" || step.op == "INVALID" {
+                    step.reverted = true;
+                }
+                step
             })
             .collect()
     }

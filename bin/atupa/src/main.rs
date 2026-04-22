@@ -27,6 +27,9 @@ use atupa_core::config::AtupaConfig;
 use atupa_lido::LidoDeepTracer;
 use atupa_nitro::{NitroClient, StitchedReport, VmKind};
 use atupa_rpc::RawStructLog;
+ 
+ mod studio;
+
 
 // ─── CLI Definition ────────────────────────────────────────────────────────────
 
@@ -286,7 +289,7 @@ async fn cmd_capture(
     let pb = spinner("Detecting network and fetching execution trace…");
     let client = NitroClient::new(config.rpc_url.clone());
  
-    let report = client
+    let mut report = client
         .trace_transaction(&tx)
         .await
         .context("Failed to fetch trace — ensure the RPC endpoint is valid and accessible.")?;
@@ -304,17 +307,52 @@ async fn cmd_capture(
         }
     ));
 
+    // Phase 1.5: resolve contract names ─────────────────────────────────────────
+    if let Some(key) = config.etherscan_key.clone() {
+        let pb_names = spinner("Resolving contract names via Etherscan…");
+        let resolver = atupa_rpc::etherscan::EtherscanResolver::new(Some(key), report.chain_id);
+        
+        let mut addresses = std::collections::HashSet::new();
+        for step in &report.steps {
+            if let Some(evm) = &step.evm {
+                if evm.op.contains("CALL") || evm.op.contains("CREATE") {
+                    if let Some(stack) = &evm.stack {
+                        if stack.len() >= 2 {
+                            let hex_addr = &stack[stack.len() - 2];
+                            let clean_hex = hex_addr.trim_start_matches("0x");
+                            let padded = format!("{:0>40}", clean_hex);
+                            let extracted = &padded[padded.len() - 40..];
+                            addresses.insert(format!("0x{}", extracted));
+                        }
+                    }
+                }
+            }
+        }
+
+        for addr in addresses {
+            if let Some(name) = resolver.resolve_contract_name(&addr).await {
+                report.resolved_names.insert(addr, name);
+            }
+        }
+        pb_names.finish_with_message(format!(
+            "{} Resolved {} contract name(s) via Etherscan.",
+            "✔".green().bold(),
+            report.resolved_names.len().to_string().cyan().bold()
+        ));
+    }
+
     // Phase 2: optional Flamegraph SVG (reuses the same report) ───────────────
     let mut svg_path: Option<String> = None;
     if generate_profile {
         let pb_svg = spinner("Generating SVG flamegraph…");
-        let svg_out = file
-            .as_deref()
-            .map(|f| f.trim_end_matches(".json").to_string() + ".svg")
-            .unwrap_or_else(|| {
-                let short = tx.trim_start_matches("0x").get(..10).unwrap_or(&tx);
-                format!("profile_{short}.svg")
-            });
+        let svg_suggestion = file.as_ref().map(|f| {
+            if f.ends_with(".json") {
+                f.trim_end_matches(".json").to_string() + ".svg"
+            } else {
+                f.to_string() + ".svg"
+            }
+        });
+        let svg_out = resolve_artifact_path(svg_suggestion, "capture", &tx, "svg");
 
         let (path, _) = atupa::execute_profile(&tx, &config.rpc_url, false, Some(svg_out), config.etherscan_key.clone())
             .await
@@ -335,24 +373,22 @@ async fn cmd_capture(
     eprintln!();
 
     // Phase 4: output ─────────────────────────────────────────────────────────
-    let report_file_path = if let Some(path) = file {
-        std::fs::write(&path, &rendered)
-            .with_context(|| format!("Failed to write report to '{path}'"))?;
-        eprintln!(
-            "{} Report written to {}",
-            "✔".green().bold(),
-            path.cyan().bold()
-        );
-        if let Some(ref svg) = svg_path {
-            eprintln!("{} SVG profile at  {}", "✔".green().bold(), svg.cyan().bold());
-        }
-        Some(path)
-    } else {
-        println!("{}", rendered);
-        None
-    };
+    let report_path = resolve_artifact_path(file, "capture", &tx, "json");
 
-    Ok(report_file_path)
+    std::fs::write(&report_path, &rendered)
+        .with_context(|| format!("Failed to write report to '{report_path}'"))?;
+
+    eprintln!(
+        "{} Report saved to {}",
+        "✔".green().bold(),
+        report_path.cyan().bold()
+    );
+
+    if let Some(ref svg) = svg_path {
+        eprintln!("{} SVG profile saved to {}", "✔".green().bold(), svg.cyan().bold());
+    }
+
+    Ok(Some(report_path))
 }
 
 // ─── Audit Command ────────────────────────────────────────────────────────────
@@ -524,124 +560,75 @@ async fn cmd_diff(config: &AtupaConfig, base: &str, target: &str) -> Result<()> 
 
 // ─── Studio Command ───────────────────────────────────────────────────────────
 
-/// Resolve the studio directory using a three-tier strategy:
-///   1. Explicit CLI flag / ATUPA_STUDIO_DIR config value
-///   2. `<CWD>/studio/`          (running from workspace root)
-///   3. `<binary dir>/studio/`   (local dev install)
-fn resolve_studio_path(explicit: Option<&std::path::PathBuf>) -> Result<std::path::PathBuf> {
-    if let Some(path) = explicit {
-        if path.is_dir() {
-            return Ok(path.clone());
-        }
-        anyhow::bail!("Configured studio directory points to a non-existent directory: {}", path.display());
-    }
-
-    // CWD/studio
-    let cwd_studio = std::env::current_dir()?.join("studio");
-    if cwd_studio.is_dir() {
-        return Ok(cwd_studio);
-    }
-
-    // binary-sibling/studio
-    if let Ok(exe) = std::env::current_exe()
-        && let Some(exe_dir) = exe.parent() {
-            let sib = exe_dir.join("studio");
-            if sib.is_dir() {
-                return Ok(sib);
-            }
-        }
-
-    anyhow::bail!(
-        "Could not locate the Atupa Studio directory.\n\
-         Run this command from the project root, or set ATUPA_STUDIO_DIR."
-    )
-}
-
 async fn cmd_studio(
-    config: &AtupaConfig,
+    _config: &AtupaConfig,
     port: u16,
     launch_browser: bool,
     report_path: Option<String>,
 ) -> Result<()> {
-    let studio_dir = resolve_studio_path(config.studio_dir.as_ref())?;
-    eprintln!(
-        "{} {}",
-        "→ Studio:".bold(),
-        studio_dir.display().to_string().cyan()
-    );
+    // 1. Read report if provided
+    let report_content = if let Some(path) = report_path.as_ref() {
+        Some(std::fs::read_to_string(path).context("Failed to read report file for Studio")?)
+    } else {
+        None
+    };
 
-    // ── Ensure node_modules is present ───────────────────────────────────────────────────
-    if !studio_dir.join("node_modules").exists() {
-        eprintln!("{}", "→ node_modules not found — running npm install…".dimmed());
-        let status = std::process::Command::new("npm")
-            .arg("install")
-            .current_dir(&studio_dir)
-            .status()
-            .context("Failed to run `npm install` — is Node.js installed?")?;
-        if !status.success() {
-            anyhow::bail!("`npm install` failed. Check the output above.");
-        }
+    // 2. Prepare the server
+    let server = studio::StudioServer::new(report_content);
+    let mut url = format!("http://localhost:{port}/");
+    if report_path.is_some() {
+        url += "?auto=true";
     }
 
-    // ── Spawn the Vite dev server ────────────────────────────────────────────────────────
-    let url = format!("http://localhost:{port}/");
-    eprintln!("{} {}\n", "→ Starting dev server at".bold(), url.cyan().bold());
+    eprintln!("{} Launching Atupa Studio...", "→".bold().cyan());
 
-    let mut child = std::process::Command::new("npm")
-        .args(["run", "dev", "--", "--port", &port.to_string(), "--host"])
-        .current_dir(&studio_dir)
-        .spawn()
-        .context("Failed to spawn `npm run dev`")?;
+    // Spawn server in background
+    let server_handle = tokio::spawn(async move {
+        if let Err(e) = server.start(port).await {
+            eprintln!("\n{} Studio server error: {e}", "⚠".red().bold());
+        }
+    });
 
-    // ── Poll until the port opens (max 15 s) ───────────────────────────────────────
-    let pb = spinner("Waiting for Studio to start…");
+    // Wait for the port to be active
     let addr = format!("127.0.0.1:{port}");
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
-
-    loop {
-        if std::net::TcpStream::connect(&addr).is_ok() {
-            break;
-        }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while std::net::TcpStream::connect(&addr).is_err() {
         if std::time::Instant::now() > deadline {
-            let _ = child.kill();
-            anyhow::bail!("Studio did not start within 15 s on port {port}.");
+            anyhow::bail!("Studio server failed to start on port {port} within 5s.");
         }
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
 
-    pb.finish_with_message(format!(
+    eprintln!(
         "{} Studio ready at {}",
         "✔".green().bold(),
         url.cyan().bold()
-    ));
+    );
 
-    // ── Open browser ────────────────────────────────────────────────────────────────────
-    if launch_browser
-        && let Err(e) = open::that(&url) {
+    // 3. Open browser
+    if launch_browser {
+        if let Err(e) = open::that(&url) {
             eprintln!("{} Could not open browser: {e}", "⚠".yellow());
         }
+    }
 
-    // ── Footer hint ────────────────────────────────────────────────────────────────────
-    match &report_path {
-        Some(path) => eprintln!(
-            "\n  {} Report pre-loaded: {}\n  Drop it into the Studio to visualize, or drag another file.",
+    // 4. Footer info
+    if let Some(path) = report_path {
+        eprintln!(
+            "\n  {} Report loaded: {}\n  The Studio has automatically opened this report.",
             "✔".green().bold(),
             path.cyan().bold(),
-        ),
-        None => eprintln!(
-            "\n{}\n{}",
-            "  Drop a report.json into the Studio to visualize a trace.".dimmed(),
-            "  Generate one with:  atupa capture --tx 0x... --output json --file report.json".dimmed(),
-        ),
+        );
     }
     eprintln!("{}\n", "  Press Ctrl+C to stop the Studio server.".dimmed());
 
-    // ── Keep running until the user presses Ctrl+C ──────────────────────────────────
-    let _ = child.wait();
+    // Keep the main thread alive while the server runs
+    let _ = server_handle.await;
     Ok(())
 }
 
 // ─── Banner & Rendering ───────────────────────────────────────────────────────
+
 
 
 fn print_banner() {
@@ -907,6 +894,7 @@ fn bridge_raw_to_trace_step(raw: &RawStructLog) -> TraceStep {
         memory: raw.memory.clone(),
         error: raw.error.clone(),
         reverted: raw.error.is_some(),
+        vm_kind: atupa_core::VmKind::Evm,
     }
 }
 
@@ -936,8 +924,30 @@ fn get_network_name(chain_id: u64) -> String {
         11155420 => "Optimism Sepolia".to_string(),
         137 => "Polygon POS".to_string(),
         1337 | 31337 => "Local Devnet".to_string(),
+        412346 => "Nitro Local Devnet".to_string(),
         0 => "Unknown Network".to_string(),
         id => format!("Chain ID: {}", id),
+    }
+}
+
+fn resolve_artifact_path(path: Option<String>, category: &str, tx_hash: &str, ext: &str) -> String {
+    let filename = path.unwrap_or_else(|| {
+        let short = tx_hash.trim_start_matches("0x").get(..10).unwrap_or(tx_hash);
+        match ext {
+            "json" => format!("report_{short}.json"),
+            "svg" => format!("profile_{short}.svg"),
+            _ => format!("artifact_{short}.{ext}"),
+        }
+    });
+
+    let pb = std::path::PathBuf::from(&filename);
+    // If it's a simple filename (no parent directory), move it to artifacts/<category>/
+    if pb.parent().map(|p| p.as_os_str().is_empty()).unwrap_or(true) {
+        let dir = format!("artifacts/{}", category);
+        let _ = std::fs::create_dir_all(&dir);
+        format!("{}/{}", dir, filename)
+    } else {
+        filename
     }
 }
 

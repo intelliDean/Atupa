@@ -3,6 +3,17 @@
 
 export type VmKind = 'Evm' | 'Stylus';
 
+export type GasCategory = 
+  | 'StorageWrite' 
+  | 'StorageRead' 
+  | 'Memory' 
+  | 'Crypto' 
+  | 'Call' 
+  | 'Execution' 
+  | 'Precompile' 
+  | 'Root' 
+  | 'Other';
+
 export interface UnifiedStep {
   index: number;
   vm: VmKind;
@@ -11,6 +22,8 @@ export interface UnifiedStep {
   cost_equiv: number;
   depth: number;
   is_vm_boundary: boolean;
+  category: GasCategory;
+  target_address?: string;
 }
 
 export interface StitchedReport {
@@ -21,7 +34,34 @@ export interface StitchedReport {
   total_stylus_gas_equiv: number;
   total_unified_cost: number;
   vm_boundary_count: number;
+  category_costs: Record<GasCategory, number>;
+  resolved_names: Record<string, string>;
 }
+
+export function getDisplayLabel(step: UnifiedStep, report: StitchedReport): string {
+  if (step.target_address && report.resolved_names[step.target_address]) {
+    return `${step.label} → ${report.resolved_names[step.target_address]}`;
+  }
+  return step.label;
+}
+
+export interface CategoryMeta {
+  label: string;
+  color: string;
+  icon: string;
+}
+
+export const CATEGORY_META: Record<GasCategory, CategoryMeta> = {
+  StorageWrite: { label: 'Storage Write', color: '#ff2a4a', icon: '💾' },
+  StorageRead:  { label: 'Storage Read',  color: '#ff8c40', icon: '📖' },
+  Memory:       { label: 'Memory Ops',    color: '#a78bfa', icon: '🧠' },
+  Crypto:       { label: 'Crypto/Hashing',color: '#60d9ff', icon: '🔐' },
+  Call:         { label: 'External Calls',color: '#2fe4c4', icon: '📡' },
+  Execution:    { label: 'Core Execution',color: '#ffb340', icon: '⚙️' },
+  Precompile:   { label: 'Precompiles',   color: '#9a9db5', icon: '⚡' },
+  Root:         { label: 'Root Frame',    color: '#f0f0f8', icon: '🏁' },
+  Other:        { label: 'Other',         color: '#555870', icon: '❓' },
+};
 
 // ─── Derived helpers ──────────────────────────────────────────────────────────
 

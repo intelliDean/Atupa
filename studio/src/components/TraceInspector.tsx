@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { getDisplayLabel } from '../types/trace';
 import type { StitchedReport, UnifiedStep } from '../types/trace';
 
 interface Props {
@@ -7,7 +8,7 @@ interface Props {
 
 const PAGE_SIZE = 150;
 
-function StepRow({ step }: { step: UnifiedStep }) {
+function StepRow({ step, report }: { step: UnifiedStep, report: StitchedReport }) {
   const indent = Array.from({ length: Math.max(0, step.depth - 1) }).map((_, i) => (
     <span key={i} className="trace-depth-indent" />
   ));
@@ -16,18 +17,21 @@ function StepRow({ step }: { step: UnifiedStep }) {
     ? step.gas_cost > 0 ? `${step.gas_cost} gas` : ''
     : `${step.cost_equiv.toFixed(2)} gas-equiv`;
 
+  const displayLabel = getDisplayLabel(step, report);
+  const isResolved = step.target_address && report.resolved_names[step.target_address];
+
   return (
     <div
       className={`trace-step${step.is_vm_boundary ? ' is-boundary' : ''}`}
       role="listitem"
-      title={step.is_vm_boundary ? 'EVM→WASM Boundary Crossing' : undefined}
+      title={isResolved ? `Target: ${step.target_address}` : (step.is_vm_boundary ? 'EVM→WASM Boundary Crossing' : undefined)}
     >
       <span className="trace-step-index">#{step.index}</span>
       {indent}
       <span className={`trace-step-badge ${step.vm === 'Evm' ? 'evm' : 'stylus'}`}>
         {step.vm === 'Evm' ? 'EVM' : 'WASM'}
       </span>
-      <span className="trace-step-label">{step.label}</span>
+      <span className={`trace-step-label ${isResolved ? 'resolved' : ''}`}>{displayLabel}</span>
       {costStr && <span className="trace-step-cost">{costStr}</span>}
       {step.is_vm_boundary && (
         <span style={{ fontSize: 10, color: 'var(--color-violet)', marginLeft: 4 }}>⇌</span>
@@ -46,7 +50,9 @@ export function TraceInspector({ report }: Props) {
       if (filter === 'evm' && s.vm !== 'Evm') return false;
       if (filter === 'stylus' && s.vm !== 'Stylus') return false;
       if (filter === 'boundary' && !s.is_vm_boundary) return false;
-      if (search && !s.label.toLowerCase().includes(search.toLowerCase())) return false;
+      
+      const label = getDisplayLabel(s, report).toLowerCase();
+      if (search && !label.includes(search.toLowerCase())) return false;
       return true;
     });
   }, [report.steps, filter, search]);
@@ -112,7 +118,7 @@ export function TraceInspector({ report }: Props) {
       <div className="trace-list glass-card" role="list" style={{ maxHeight: 480, overflowY: 'auto', padding: 'var(--sp-3)' }}>
         {visible.length === 0
           ? <div style={{ color: 'var(--color-text-muted)', fontSize: 13, padding: 'var(--sp-4)' }}>No steps match your filter.</div>
-          : visible.map((s) => <StepRow key={s.index} step={s} />)
+          : visible.map((s) => <StepRow key={s.index} step={s} report={report} />)
         }
       </div>
 

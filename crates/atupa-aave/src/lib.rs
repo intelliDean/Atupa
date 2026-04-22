@@ -315,15 +315,12 @@ mod tests {
 
     fn make_call_step(op: &str, selector: &str, gas_cost: u64) -> TraceStep {
         TraceStep {
-            pc: 0,
             op: op.to_string(),
             gas: 1_000_000,
             gas_cost,
             depth: 1,
             stack: Some(vec![selector.to_string()]),
-            memory: None,
-            error: None,
-            reverted: false,
+            ..Default::default()
         }
     }
 

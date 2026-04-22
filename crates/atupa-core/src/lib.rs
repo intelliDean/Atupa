@@ -26,8 +26,56 @@ pub enum GasCategory {
     Other,
 }
 
+impl GasCategory {
+    pub fn from_step(op: &str, vm: VmKind) -> Self {
+        let op = op.trim();
+        match vm {
+            VmKind::Evm => Self::from_evm(op),
+            VmKind::Stylus => Self::from_stylus(op),
+        }
+    }
+
+    fn from_evm(op: &str) -> Self {
+        match op {
+            "SSTORE" | "TSTORE" => Self::StorageWrite,
+            "SLOAD" | "TLOAD" => Self::StorageRead,
+            "MLOAD" | "MSTORE" | "MSTORE8" | "MCOPY" | "MSIZE" => Self::Memory,
+            "KECCAK256" | "SHA3" => Self::Crypto,
+            "CALL" | "STATICCALL" | "DELEGATECALL" | "CALLCODE" | "CREATE" | "CREATE2" | "RETURN" | "REVERT" | "STOP" | "INVALID" | "SELFDESTRUCT" => Self::Call,
+            // Arithmetic, Logic, Stack, Flow
+            "ADD" | "SUB" | "MUL" | "DIV" | "SDIV" | "MOD" | "SMOD" | "ADDMOD" | "MULMOD" | "EXP" | "SIGNEXTEND" | 
+            "LT" | "GT" | "SLT" | "SGT" | "EQ" | "ISZERO" | "AND" | "OR" | "XOR" | "NOT" | "BYTE" | "SHL" | "SHR" | "SAR" |
+            "POP" | "PUSH1" | "PUSH2" | "PUSH3" | "PUSH4" | "PUSH5" | "PUSH6" | "PUSH7" | "PUSH8" | "PUSH9" | "PUSH10" | "PUSH11" | "PUSH12" | "PUSH13" | "PUSH14" | "PUSH15" | "PUSH16" | "PUSH17" | "PUSH18" | "PUSH19" | "PUSH20" | "PUSH21" | "PUSH22" | "PUSH23" | "PUSH24" | "PUSH25" | "PUSH26" | "PUSH27" | "PUSH28" | "PUSH29" | "PUSH30" | "PUSH31" | "PUSH32" |
+            "DUP1" | "DUP2" | "DUP3" | "DUP4" | "DUP5" | "DUP6" | "DUP7" | "DUP8" | "DUP9" | "DUP10" | "DUP11" | "DUP12" | "DUP13" | "DUP14" | "DUP15" | "DUP16" |
+            "SWAP1" | "SWAP2" | "SWAP3" | "SWAP4" | "SWAP5" | "SWAP6" | "SWAP7" | "SWAP8" | "SWAP9" | "SWAP10" | "SWAP11" | "SWAP12" | "SWAP13" | "SWAP14" | "SWAP15" | "SWAP16" |
+            "JUMP" | "JUMPI" | "PC" | "GAS" | "JUMPDEST" => Self::Execution,
+            _ => Self::Other,
+        }
+    }
+
+    fn from_stylus(hostio: &str) -> Self {
+        let n = hostio.to_lowercase();
+        // Specific checks for flush (it's a write operation)
+        if n.contains("flush") || n.contains("storage_store") {
+            Self::StorageWrite
+        } else if n.contains("storage_load") || n.contains("storage_cache") {
+            Self::StorageRead
+        } else if n.contains("keccak") || n.contains("sha2") {
+            Self::Crypto
+        } else if n.contains("call") || n.contains("create") {
+            Self::Call
+        } else if n.contains("memory") || n.contains("args") || n.contains("return") {
+            Self::Memory
+        } else if n.contains("msg") || n.contains("block") || n.contains("tx") || n.contains("evm") || n.contains("user") {
+            Self::Execution
+        } else {
+            Self::Other
+        }
+    }
+}
+
 /// A single step in the EVM execution trace (equivalent to structLog).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TraceStep {
     pub pc: u64,
     pub op: String,
@@ -40,6 +88,8 @@ pub struct TraceStep {
     pub error: Option<String>,
     #[serde(default)]
     pub reverted: bool,
+    #[serde(default)]
+    pub vm_kind: VmKind,
 }
 
 /// Which virtual machine produced these execution steps.

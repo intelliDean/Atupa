@@ -52,3 +52,10 @@ stylus-*.json
 # Atupa Studio build output
 studio/dist/
 studio/node_modules/
+
+# Local artifacts
+artifacts/
+
+# Playground
+playground/out/
+playground/cache/

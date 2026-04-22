@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import './styles/design-system.css';
 import type { StitchedReport } from './types/trace';
 import {
@@ -15,6 +15,7 @@ import { MetricCard } from './components/MetricCard';
 import { HostIoAggregator } from './components/HostIoAggregator';
 import { TraceInspector } from './components/TraceInspector';
 import { FlameGraph } from './components/FlameGraph';
+import { CategoryBreakdown } from './components/CategoryBreakdown';
 
 type View = 'overview' | 'flame' | 'trace' | 'hostio';
 
@@ -27,6 +28,22 @@ export default function App() {
     setReport(r);
     setView('overview');
   }, []);
+
+  // ── Auto-load from URL ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('auto') === 'true') {
+      fetch('/auto-load.json')
+        .then(res => {
+          if (!res.ok) throw new Error('Report not found');
+          return res.json();
+        })
+        .then(handleLoad)
+        .catch(err => {
+          console.warn('Auto-load failed or no report found:', err);
+        });
+    }
+  }, [handleLoad]);
 
   const handleReset = useCallback(() => {
     setReport(null);
@@ -124,6 +141,15 @@ export default function App() {
           <>
             {view === 'overview' && (
               <>
+                {/* Section: Cost Breakdown */}
+                <div className="glass-card">
+                  <div className="section-header">
+                    <span className="section-title">Cost Breakdown by Category</span>
+                    <div className="section-divider" />
+                  </div>
+                  <CategoryBreakdown report={report} />
+                </div>
+
                 {/* Section: Metrics */}
                 <div className="glass-card">
                   <div className="section-header">

@@ -6,15 +6,11 @@ fn main() {
     // 1. Create mock trace steps (in a real app, these come from atupa-rpc)
     let steps = vec![
         TraceStep {
-            pc: 0,
             op: "PUSH1".into(),
             gas: 100,
             gas_cost: 3,
             depth: 1,
-            stack: None,
-            memory: None,
-            error: None,
-            reverted: false,
+            ..Default::default()
         },
         TraceStep {
             pc: 1,
@@ -31,20 +27,14 @@ fn main() {
                 "0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".into(), // USDC
                 "0xFFFF".into(),
             ]),
-            memory: None,
-            error: None,
-            reverted: false,
+            ..Default::default()
         },
         TraceStep {
-            pc: 0,
             op: "SSTORE".into(),
             gas: 50,
             gas_cost: 20000,
             depth: 2,
-            stack: None,
-            memory: None,
-            error: None,
-            reverted: false,
+            ..Default::default()
         },
     ];
 

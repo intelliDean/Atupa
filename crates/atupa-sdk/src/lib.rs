@@ -96,53 +96,32 @@ pub mod profile {
                 "Processing {evm_count} EVM + {wasm_count} Stylus steps from {network}…"
             ));
 
-            // Build EVM collapsed stacks from raw EVM structLogs
-            let evm_raw: Vec<_> = report
+            // ── Unified single-pass aggregation ────────────────────────────────
+            // Convert the interleaved UnifiedStep timeline into core TraceSteps.
+            // Stylus steps already carry depth = (parent CALL depth + 1) and a
+            // gas_cost equal to ink / 10_000, so the Aggregator nests them under
+            // their EVM CALL frames without any special-casing.
+            let unified_steps: Vec<atupa_core::TraceStep> = report
                 .steps
                 .iter()
-                .filter_map(|s| s.evm.clone())
+                .map(|s| s.to_trace_step())
                 .collect();
-            let evm_trace_steps = AtupaParser::normalize(
-                evm_raw.to_vec(),
-            );
-            let mut evm_stacks = Aggregator::build_collapsed_stacks(&evm_trace_steps);
 
-            // Etherscan resolution on EVM stacks
+            let normalized = AtupaParser::normalize_raw(unified_steps);
+            let mut combined = Aggregator::build_collapsed_stacks(&normalized);
+
+            // Etherscan resolution — only meaningful for EVM steps with an address.
             pb.set_message("Resolving contract names via Etherscan…");
             let resolver = EtherscanResolver::new(etherscan_key, report.chain_id);
-            for stack in &mut evm_stacks {
-                if let Some(addr) = &stack.target_address
-                    && let Some(name) = resolver.resolve_contract_name(addr).await
-                {
-                    stack.target_address = Some(name);
+            for stack in &mut combined {
+                if stack.vm_kind == VmKind::Evm {
+                    if let Some(addr) = &stack.target_address
+                        && let Some(name) = resolver.resolve_contract_name(addr).await
+                    {
+                        stack.target_address = Some(name);
+                    }
                 }
             }
-
-            // Build Stylus collapsed stacks from HostIO steps
-            let stylus_stacks: Vec<CollapsedStack> = report
-                .steps
-                .iter()
-                .filter(|s| s.vm == NitroVmKind::Stylus)
-                .filter_map(|s| s.stylus.as_ref())
-                .map(|hostio| CollapsedStack {
-                    stack: hostio.name.clone(),
-                    weight: hostio.ink_consumed() / 10_000, // ink → gas-equiv weight
-                    last_pc: None,
-                    depth: 1,
-                    vm_kind: VmKind::Stylus,
-                    target_address: None,
-                    resolved_label: Some(format!(
-                        "{} ({:.2} gas-equiv)",
-                        hostio.name,
-                        hostio.ink_as_gas_equiv()
-                    )),
-                    reverted: false,
-                })
-                .collect();
-
-            // Merge: EVM first, then WASM (painter's order)
-            let mut combined = evm_stacks;
-            combined.extend(stylus_stacks);
 
             (combined, network)
         };
@@ -186,13 +165,17 @@ pub mod profile {
         match chain_id {
             1 => "Ethereum Mainnet".to_string(),
             11155111 => "Sepolia Testnet".to_string(),
+            17000 => "Holesky Testnet".to_string(),
             42161 => "Arbitrum One".to_string(),
             42170 => "Arbitrum Nova".to_string(),
             421614 => "Arbitrum Sepolia".to_string(),
             8453 => "Base Mainnet".to_string(),
             84532 => "Base Sepolia".to_string(),
             10 => "Optimism".to_string(),
+            11155420 => "Optimism Sepolia".to_string(),
             137 => "Polygon POS".to_string(),
+            1337 | 31337 => "Local Devnet".to_string(),
+            412346 => "Nitro Local Devnet".to_string(),
             0 => "Unknown Network".to_string(),
             id => format!("Chain ID: {id}"),
         }

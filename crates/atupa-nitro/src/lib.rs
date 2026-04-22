@@ -1,7 +1,10 @@
 use atupa_rpc::{EthClient, RawStructLog, RpcError};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashMap;
 use thiserror::Error;
+use atupa_core::GasCategory;
+use atupa_core::VmKind as CoreVmKind;
 
 // ─── Error Type ──────────────────────────────────────────────────────────────
 
@@ -66,6 +69,15 @@ pub enum VmKind {
     Stylus,
 }
 
+impl From<VmKind> for CoreVmKind {
+    fn from(v: VmKind) -> Self {
+        match v {
+            VmKind::Evm => CoreVmKind::Evm,
+            VmKind::Stylus => CoreVmKind::Stylus,
+        }
+    }
+}
+
 /// A single step in the merged, time-ordered execution timeline.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnifiedStep {
@@ -83,10 +95,63 @@ pub struct UnifiedStep {
     pub depth: u16,
     /// True when this is the EVM `CALL` opcode that dispatches into a WASM contract.
     pub is_vm_boundary: bool,
+    /// The logical category of this execution step.
+    pub category: GasCategory,
+    /// Target address for CALL/CREATE operations.
+    pub target_address: Option<String>,
     /// Raw EVM structLog, present only for EVM steps.
     pub evm: Option<RawStructLog>,
     /// Raw Stylus HostIO, present only for Stylus steps.
     pub stylus: Option<StylusHostIO>,
+}
+
+impl UnifiedStep {
+    /// Converts a unified step back to a core TraceStep, preserving VM identity and depth.
+    pub fn to_trace_step(&self) -> atupa_core::TraceStep {
+        if let Some(evm) = &self.evm {
+            let reverted =
+                evm.error.is_some() || evm.op == "REVERT" || evm.op == "INVALID";
+            atupa_core::TraceStep {
+                pc: evm.pc,
+                op: evm.op.clone(),
+                gas: evm.gas,
+                gas_cost: evm.gas_cost,
+                depth: evm.depth,
+                stack: evm.stack.clone(),
+                memory: evm.memory.clone(),
+                error: evm.error.clone(),
+                reverted,
+                vm_kind: atupa_core::VmKind::Evm,
+            }
+        } else if let Some(stylus) = &self.stylus {
+            atupa_core::TraceStep {
+                pc: 0,
+                op: stylus.name.clone(),
+                gas: 0,
+                gas_cost: self.cost_equiv.round() as u64,
+                depth: self.depth,
+                stack: None,
+                memory: None,
+                error: None,
+                reverted: false,
+                vm_kind: atupa_core::VmKind::Stylus,
+            }
+        } else {
+            // Fallback for label-only steps
+            atupa_core::TraceStep {
+                pc: 0,
+                op: self.label.clone(),
+                gas: 0,
+                gas_cost: 0,
+                depth: self.depth,
+                stack: None,
+                memory: None,
+                error: None,
+                reverted: false,
+                vm_kind: self.vm.clone().into(),
+            }
+        }
+    }
 }
 
 // ─── Stitched Report ──────────────────────────────────────────────────────────
@@ -110,6 +175,10 @@ pub struct StitchedReport {
     pub total_stylus_gas_equiv: f64,
     /// Combined cost: `total_evm_gas` + `total_stylus_gas_equiv`.
     pub total_unified_cost: f64,
+    /// Aggregated costs by gas category.
+    pub category_costs: HashMap<GasCategory, f64>,
+    /// Address labels resolved via Etherscan (Address -> Contract Name).
+    pub resolved_names: HashMap<String, String>,
 }
 
 impl StitchedReport {
@@ -189,6 +258,22 @@ impl MixedTraceStitcher {
 
             total_evm_gas = total_evm_gas.saturating_add(gas_cost);
 
+            let category = GasCategory::from_step(&log.op, VmKind::Evm.into());
+
+            // Extract target address for CALL/CREATE
+            let mut target_address = None;
+            if log.op.contains("CALL") || log.op.contains("CREATE") {
+                if let Some(stack) = &log.stack {
+                    if stack.len() >= 2 {
+                        let hex_addr = &stack[stack.len() - 2];
+                        let clean_hex = hex_addr.trim_start_matches("0x");
+                        let padded = format!("{:0>40}", clean_hex);
+                        let extracted = &padded[padded.len() - 40..];
+                        target_address = Some(format!("0x{}", extracted.to_lowercase()));
+                    }
+                }
+            }
+
             steps.push(UnifiedStep {
                 index,
                 vm: VmKind::Evm,
@@ -196,7 +281,9 @@ impl MixedTraceStitcher {
                 gas_cost,
                 cost_equiv: gas_cost as f64,
                 depth,
-                is_vm_boundary: false, // Will be set to true if subsequent HostIOs are found
+                is_vm_boundary: false, 
+                category,
+                target_address,
                 evm: Some(log),
                 stylus: None,
             });
@@ -230,14 +317,18 @@ impl MixedTraceStitcher {
                 total_stylus_ink = total_stylus_ink.saturating_add(ink_used);
                 window_host_io_count += 1;
 
+                let cost_equiv = host_io.ink_as_gas_equiv();
+                let category = GasCategory::from_step(&host_io.name, VmKind::Stylus.into());
                 steps.push(UnifiedStep {
                     index,
                     vm: VmKind::Stylus,
                     label: host_io.name.clone(),
                     gas_cost: 0,
-                    cost_equiv: host_io.ink_as_gas_equiv(),
-                    depth, // Inherit depth from the owning CALL frame.
+                    cost_equiv,
+                    depth: depth + 1, // Nest under the owning CALL frame.
                     is_vm_boundary: false,
+                    category,
+                    target_address: None,
                     evm: None,
                     stylus: Some(host_io),
                 });
@@ -247,6 +338,8 @@ impl MixedTraceStitcher {
             if window_host_io_count > 0 {
                 vm_boundary_count += 1;
                 steps[call_step_index].is_vm_boundary = true;
+                // Boundaries are often categorized as 'Call', but the specific CALL that triggered 
+                // it is already categorized above.
             }
         }
 
@@ -257,14 +350,18 @@ impl MixedTraceStitcher {
             let ink_used = host_io.ink_consumed();
             total_stylus_ink = total_stylus_ink.saturating_add(ink_used);
 
+            let cost_equiv = host_io.ink_as_gas_equiv();
+            let category = GasCategory::from_step(&host_io.name, VmKind::Stylus.into());
             steps.push(UnifiedStep {
                 index,
                 vm: VmKind::Stylus,
                 label: host_io.name.clone(),
                 gas_cost: 0,
-                cost_equiv: host_io.ink_as_gas_equiv(),
+                cost_equiv,
                 depth: 0,
                 is_vm_boundary: false,
+                category,
+                target_address: None,
                 evm: None,
                 stylus: Some(host_io),
             });
@@ -273,6 +370,12 @@ impl MixedTraceStitcher {
 
         let total_stylus_gas_equiv = total_stylus_ink as f64 / 10_000.0;
         let total_unified_cost = total_evm_gas as f64 + total_stylus_gas_equiv;
+
+        // Aggregate category costs
+        let mut category_costs = HashMap::new();
+        for step in &steps {
+            *category_costs.entry(step.category.clone()).or_insert(0.0) += step.cost_equiv;
+        }
 
         StitchedReport {
             tx_hash,
@@ -283,6 +386,8 @@ impl MixedTraceStitcher {
             vm_boundary_count,
             total_stylus_gas_equiv,
             total_unified_cost,
+            category_costs,
+            resolved_names: HashMap::new(),
         }
     }
 }
@@ -480,7 +585,13 @@ mod tests {
         // Each user_entrypoint should be in a separate window (depth preserved).
         // First window entry is at index 1, second at index 3.
         assert_eq!(report.steps[1].label, "user_entrypoint");
+        assert_eq!(report.steps[1].category, GasCategory::Execution);
         assert_eq!(report.steps[3].label, "user_entrypoint");
+        assert_eq!(report.steps[3].category, GasCategory::Execution);
+        
+        // Category costs check
+        assert!(report.category_costs.get(&GasCategory::Call).unwrap() > &0.0);
+        assert!(report.category_costs.get(&GasCategory::Execution).unwrap() > &0.0);
     }
 
     #[test]
@@ -526,5 +637,27 @@ mod tests {
             "CALL before Stylus steps should be a boundary"
         );
         assert_eq!(report2.boundary_steps()[0].label, "CALL");
+    }
+
+    #[test]
+    fn target_address_is_extracted_from_evm_stack() {
+        // CALL stack: [gas, address, value, argsOffset, argsLength, retOffset, retLength]
+        // Address is at len-2.
+        let mut log = evm("CALL", 100, 1);
+        log.stack = Some(vec![
+            "0x0".into(), // retLength
+            "0x0".into(), // retOffset
+            "0x4".into(), // argsLength
+            "0x20".into(), // argsOffset
+            "0x0".into(), // value
+            "0x00000000000000000000000071C7656EC7ab88b098defB751B7401B5f6d8976F".into(), // address
+            "0x1000".into(), // gas
+        ]);
+
+        let report = MixedTraceStitcher::stitch("0xabc", 1, vec![log], vec![]);
+        assert_eq!(
+            report.steps[0].target_address.as_deref(),
+            Some("0x71c7656ec7ab88b098defb751b7401b5f6d8976f")
+        );
     }
 }
