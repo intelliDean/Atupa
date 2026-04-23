@@ -663,8 +663,23 @@ fn print_banner() {
     eprintln!();
 }
 
+fn hostio_category_color(label: &str) -> &'static str {
+    match label {
+        "storage_flush_cache" | "storage_store_bytes32" => "\x1b[31;1m",
+        "storage_load_bytes32" | "storage_cache_bytes32" => "\x1b[33m",
+        "native_keccak256" => "\x1b[35m",
+        "read_args" | "write_result" | "pay_for_memory_grow" => "\x1b[32m",
+        "msg_sender" | "msg_value" | "msg_reentrant"
+        | "emit_log" | "account_balance" | "block_hash" => "\x1b[36m",
+        "call" | "static_call" | "delegate_call" | "create" => "\x1b[34m",
+        _ => "\x1b[90m",
+    }
+}
+
 fn render_capture_summary(report: &StitchedReport) -> String {
+    const RESET: &str = "\x1b[0m";
     let div = "─".repeat(56).dimmed().to_string();
+    let wide_div = "━".repeat(72);
     let mut out = String::new();
 
     out += &format!(
@@ -716,12 +731,29 @@ fn render_capture_summary(report: &StitchedReport) -> String {
         evm_count(report).to_string().green()
     );
 
-    // Only show Stylus/WASM details if they exist
-    if !report.stylus_steps().is_empty() {
+    // Stylus section — only when HostIO steps exist
+    let stylus = report.stylus_steps();
+    if !stylus.is_empty() {
+        // Aggregate ink cost by label
+        let mut grouped: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+        for step in stylus.iter() {
+            *grouped.entry(step.label.clone()).or_insert(0.0) += step.cost_equiv;
+        }
+        let mut aggregated: Vec<(String, f64)> = grouped.into_iter().collect();
+        aggregated.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+        let total_ink_gas: f64 = aggregated.iter().map(|(_, c)| c).sum();
+        let unique_paths = aggregated.len();
+
         out += &format!(
             "  {:<34} {}\n",
-            "Stylus HostIO Steps:".bold(),
-            report.stylus_steps().len().to_string().yellow()
+            "Stylus HostIO Calls:".bold(),
+            stylus.len().to_string().yellow()
+        );
+        out += &format!(
+            "  {:<34} {}\n",
+            "Unique HostIO Paths:".bold(),
+            unique_paths.to_string().yellow()
         );
 
         if report.vm_boundary_count > 0 {
@@ -741,30 +773,46 @@ fn render_capture_summary(report: &StitchedReport) -> String {
                 );
             }
         }
+
         out += &format!("{div}\n");
-    }
 
-
-    // Top Stylus ink consumers
-    let stylus = report.stylus_steps();
-    if !stylus.is_empty() {
-        let mut grouped: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
-        for step in stylus.iter() {
-            *grouped.entry(step.label.clone()).or_insert(0.0) += step.cost_equiv;
-        }
-
-        let mut aggregated: Vec<(String, f64)> = grouped.into_iter().collect();
-        // Sort descending by cost
-        aggregated.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-
-        out += &format!("  {}\n", "🔥 Top Ink Consumers (Stylus HostIO):".bold());
-        for (label, cost) in aggregated.iter().take(5) {
+        // ── Colour-coded hot-path table ────────────────────────────────────
+        out += &format!("  {}\n", "🔥 STYLUS HOT PATHS".bold());
+        out += &format!("  {wide_div}\n");
+        out += &format!(
+            "  ┃ {:<42} ┃ {:>10} ┃ {:>14} ┃ {:>7} ┃\n",
+            "HostIO (Hottest First)", "GAS", "INK (raw)", "%"
+        );
+        out += &format!("  {wide_div}\n");
+        for (label, cost_gas) in aggregated.iter().take(10) {
+            let cost_ink = (cost_gas * 10_000.0) as u64;
+            let pct = if total_ink_gas > 0.0 { cost_gas / total_ink_gas * 100.0 } else { 0.0 };
+            let color = hostio_category_color(label);
+            let gas_str = format!("{:.0}", cost_gas);
             out += &format!(
-                "    {:<36} {:>8.2} gas-equiv\n",
-                label.yellow(),
-                cost
+                "  ┃ {color}{:<42}{RESET} ┃ {gas_str:>10} ┃ {cost_ink:>14} ┃ {pct:>6.1}% ┃\n",
+                label,
             );
         }
+        out += &format!("  {wide_div}\n");
+
+        // ── ASCII flamegraph ───────────────────────────────────────────────
+        out += &format!("\n  {}\n", "📊 SIMPLIFIED FLAMEGRAPH".bold());
+        out += "  root ██████████████████████████████████████████████████ 100%\n";
+        for (label, cost_gas) in aggregated.iter().take(5) {
+            let pct = if total_ink_gas > 0.0 { cost_gas / total_ink_gas * 100.0 } else { 0.0 };
+            let bar_width = (pct / 2.0) as usize;
+            let bar = "█".repeat(bar_width);
+            let color = hostio_category_color(label);
+            out += &format!(
+                "  └─ {color}{:<20}{RESET} {color}{:<50}{RESET} {:>5.1}%\n",
+                label, bar, pct
+            );
+        }
+        if unique_paths > 10 {
+            out += &format!("\n   ({} of {} unique paths shown)\n", 10, unique_paths);
+        }
+
         out += &format!("{div}\n");
     }
 
