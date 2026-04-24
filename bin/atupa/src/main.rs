@@ -254,7 +254,10 @@ async fn cmd_profile(
     eprintln!("{} {}", "→ Profiling:".bold(), display.cyan());
     eprintln!("{} {}\n", "→ Endpoint: ".bold(), config.rpc_url.dimmed());
 
-    let (out_path, network) = atupa::execute_profile(tx, &config.rpc_url, demo, out, config.etherscan_key.clone())
+    // Route output through the standard artifacts directory (same as capture)
+    let svg_path = resolve_artifact_path(out, "profile", tx, "svg");
+
+    let (out_path, network) = atupa::execute_profile(tx, &config.rpc_url, demo, Some(svg_path), config.etherscan_key.clone())
         .await
         .context("Profile command failed")?;
 
@@ -274,6 +277,7 @@ async fn cmd_profile(
     eprintln!("{div}");
     Ok(())
 }
+
 
 // ─── Capture Command ──────────────────────────────────────────────────────────
 
