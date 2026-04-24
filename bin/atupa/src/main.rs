@@ -713,7 +713,22 @@ async fn cmd_diff(
     }
 
     if svg {
-        println!("  ⚠️ Visual Diff Flamegraph (SVG) generation is under construction.");
+        let base_trace_steps: Vec<atupa_core::TraceStep> = base_report.steps.iter().map(|s| s.to_trace_step()).collect();
+        let base_normalized = TraceParser::normalize_raw(base_trace_steps);
+        let base_stacks = Aggregator::build_collapsed_stacks(&base_normalized);
+
+        let target_trace_steps: Vec<atupa_core::TraceStep> = target_report.steps.iter().map(|s| s.to_trace_step()).collect();
+        let target_normalized = TraceParser::normalize_raw(target_trace_steps);
+        let target_stacks = Aggregator::build_collapsed_stacks(&target_normalized);
+
+        let svg_content = atupa_output::generate_diff_flamegraph(
+            &base_stacks,
+            &target_stacks,
+        )?;
+        let svg_path = format!("artifacts/diff/{}_vs_{}.svg", &base[..10], &target[..10]);
+        std::fs::create_dir_all("artifacts/diff").ok();
+        std::fs::write(&svg_path, svg_content).context("Failed to write diff flamegraph SVG")?;
+        println!("  🔥 Visual diff flamegraph written to {}", svg_path.cyan());
     }
 
     // Threshold Engine Evaluation

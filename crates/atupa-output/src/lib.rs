@@ -1,6 +1,9 @@
 use askama::Template;
 use atupa_core::{CollapsedStack, VmKind};
 
+pub mod diff;
+pub use diff::generate_diff_flamegraph;
+
 // ─── Template types ──────────────────────────────────────────────────────────
 
 #[derive(Template)]
