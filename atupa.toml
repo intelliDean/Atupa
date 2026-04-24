@@ -1,0 +1,5 @@
+[diff]
+max_total_gas_increase_percent = 2.0
+max_execution_gas_increase_percent = 2.0
+max_evm_steps_increase = 100
+max_stylus_calls_increase = 0

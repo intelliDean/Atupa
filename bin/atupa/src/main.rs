@@ -31,9 +31,10 @@ use atupa_parser::Parser as TraceParser;
 use atupa_parser::aggregator::Aggregator;
 use atupa_rpc::{EthClient, RawStructLog};
  
- mod studio;
+mod studio;
+mod thresholds;
 
-
+use thresholds::AtupaConfigToml;
 // ─── CLI Definition ────────────────────────────────────────────────────────────
 
 #[derive(Parser)]
@@ -132,6 +133,26 @@ enum Commands {
         /// Target transaction hash (0x-prefixed)
         #[arg(short, long, value_name = "TARGET_TX")]
         target: String,
+
+        /// Simple mode override: Fail CI if gas increases by > X%
+        #[arg(long, value_name = "PERCENT")]
+        threshold: Option<f64>,
+
+        /// Path to atupa.toml (defaults to looking in CWD)
+        #[arg(long, value_name = "FILE")]
+        config: Option<String>,
+
+        /// Generate artifacts/diff/report.md for GitHub PRs
+        #[arg(long, default_value_t = false)]
+        markdown: bool,
+
+        /// Generate visual diff flamegraph in artifacts/diff/
+        #[arg(long, default_value_t = false)]
+        svg: bool,
+
+        /// Optional: Run DeepTracer on both and diff heuristics
+        #[arg(short, long, value_enum)]
+        protocol: Option<Protocol>,
     },
 
     /// Launch Atupa Studio — the local web visualizer for trace reports
@@ -220,8 +241,26 @@ async fn main() -> Result<()> {
         Commands::Audit { tx, protocol } => {
             cmd_audit(&config, &tx, protocol).await?;
         }
-        Commands::Diff { base, target } => {
-            cmd_diff(&config, &base, &target).await?;
+        Commands::Diff {
+            base,
+            target,
+            threshold,
+            config: diff_config,
+            markdown,
+            svg,
+            protocol,
+        } => {
+            cmd_diff(
+                &config,
+                &base,
+                &target,
+                threshold,
+                diff_config,
+                markdown,
+                svg,
+                protocol,
+            )
+            .await?;
         }
         Commands::Studio { port, dir, open } => {
             if let Some(d) = dir {
@@ -502,7 +541,17 @@ async fn cmd_audit(config: &AtupaConfig, tx: &str, protocol: Protocol) -> Result
 
 // ─── Diff Command ─────────────────────────────────────────────────────────────
 
-async fn cmd_diff(config: &AtupaConfig, base: &str, target: &str) -> Result<()> {
+#[allow(clippy::too_many_arguments)]
+async fn cmd_diff(
+    config: &AtupaConfig,
+    base: &str,
+    target: &str,
+    threshold: Option<f64>,
+    diff_config: Option<String>,
+    markdown: bool,
+    svg: bool,
+    _protocol: Option<Protocol>,
+) -> Result<()> {
     let base = normalise_hash(base);
     let target = normalise_hash(target);
 
@@ -516,73 +565,206 @@ async fn cmd_diff(config: &AtupaConfig, base: &str, target: &str) -> Result<()> 
     eprintln!("{} {}\n", "→ Endpoint:".bold(), config.rpc_url.dimmed());
 
     let client = NitroClient::new(config.rpc_url.clone());
+    let eth_client = EthClient::new(config.rpc_url.clone());
 
-    let pb = spinner("Fetching both traces concurrently…");
+    let pb = spinner("Fetching both traces and receipts concurrently…");
+    
+    // Fetch traces
     let (base_report, target_report) = tokio::try_join!(
         client.trace_transaction(&base),
         client.trace_transaction(&target),
     )
     .context("Failed to fetch one or both traces")?;
-    pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
 
+    // Fetch receipts for actual gas used
+    let (base_receipt_gas, target_receipt_gas) = tokio::join!(
+        eth_client.get_gas_used(&base),
+        eth_client.get_gas_used(&target),
+    );
+
+    pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
     eprintln!();
 
-    // Cost delta
-    let base_cost = base_report.total_unified_cost;
-    let target_cost = target_report.total_unified_cost;
-    let delta = target_cost - base_cost;
-    let pct = if base_cost > 0.0 {
-        delta / base_cost * 100.0
+    // Cost deltas
+    let base_unified_cost = base_report.total_unified_cost;
+    let target_unified_cost = target_report.total_unified_cost;
+    let unified_delta = target_unified_cost - base_unified_cost;
+    let unified_pct = if base_unified_cost > 0.0 {
+        unified_delta / base_unified_cost * 100.0
     } else {
         0.0
     };
 
-    let div = "─".repeat(56).dimmed().to_string();
+    let base_total_gas = base_receipt_gas.unwrap_or(base_unified_cost as u64);
+    let target_total_gas = target_receipt_gas.unwrap_or(target_unified_cost as u64);
+    let total_gas_delta = target_total_gas as f64 - base_total_gas as f64;
+    let total_gas_pct = if base_total_gas > 0 {
+        total_gas_delta / base_total_gas as f64 * 100.0
+    } else {
+        0.0
+    };
+
+    let base_intrinsic = if base_total_gas > base_unified_cost as u64 { base_total_gas - base_unified_cost as u64 } else { 0 };
+    let target_intrinsic = if target_total_gas > target_unified_cost as u64 { target_total_gas - target_unified_cost as u64 } else { 0 };
+
+    let div = "─".repeat(70).dimmed().to_string();
     println!("{}", "  EXECUTION DIFF".bold().underline());
     println!("{div}");
+    
+    // Print Table Header
     println!(
-        "  {:<30} {}",
-        "Base unified cost (gas):".bold(),
-        format!("{base_cost:.2}").green()
-    );
-    println!(
-        "  {:<30} {}",
-        "Target unified cost (gas):".bold(),
-        format!("{target_cost:.2}").yellow()
+        "  {:<25} {:<15} {:<15} {}",
+        "Metric".bold(),
+        "Base".bold(),
+        "Target".bold(),
+        "Delta".bold()
     );
     println!("{div}");
 
-    let sign = if delta >= 0.0 { "+" } else { "" };
-    let color = if delta > 0.0 {
-        format!("{sign}{delta:.2}").red().to_string()
-    } else if delta < 0.0 {
-        format!("{sign}{delta:.2}").green().to_string()
-    } else {
-        format!("{sign}{delta:.2}").dimmed().to_string()
+    let colorize_delta = |delta: f64, pct: f64| -> String {
+        let sign = if delta >= 0.0 { "+" } else { "" };
+        if delta > 0.0 {
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").red().to_string()
+        } else if delta < 0.0 {
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").green().to_string()
+        } else {
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").dimmed().to_string()
+        }
     };
+
     println!(
-        "  {:<30} {} ({sign}{pct:.1}%)",
-        "Δ Unified Cost:".bold(),
-        color
+        "  {:<25} {:<15} {:<15} {}",
+        "Total On-Chain Gas:",
+        base_total_gas.to_string().green(),
+        target_total_gas.to_string().yellow(),
+        colorize_delta(total_gas_delta, total_gas_pct)
     );
+
+    println!(
+        "  {:<25} {:<15} {:<15} {}",
+        "↳ Execution Gas (EVM):",
+        base_unified_cost.to_string().cyan(),
+        target_unified_cost.to_string().cyan(),
+        colorize_delta(unified_delta, unified_pct)
+    );
+
+    let intrinsic_delta = target_intrinsic as f64 - base_intrinsic as f64;
+    let intrinsic_pct = if base_intrinsic > 0 { intrinsic_delta / base_intrinsic as f64 * 100.0 } else { 0.0 };
+    println!(
+        "  {:<25} {:<15} {:<15} {}",
+        "↳ Intrinsic Gas:",
+        base_intrinsic.to_string().dimmed(),
+        target_intrinsic.to_string().dimmed(),
+        colorize_delta(intrinsic_delta, intrinsic_pct)
+    );
+    
     println!("{div}");
 
     // Step count comparison
     let base_evm = evm_count(&base_report);
     let tgt_evm = evm_count(&target_report);
+    let evm_delta = tgt_evm as f64 - base_evm as f64;
+    let evm_pct = if base_evm > 0 { evm_delta / base_evm as f64 * 100.0 } else { 0.0 };
     println!(
-        "  {:<30} {} EVM | {} Stylus",
-        "Base steps:".bold(),
+        "  {:<25} {:<15} {:<15} {}",
+        "EVM Steps:",
         base_evm.to_string().green(),
-        base_report.stylus_steps().len().to_string().yellow()
+        tgt_evm.to_string().yellow(),
+        colorize_delta(evm_delta, evm_pct)
     );
+    
+    let base_stylus = base_report.stylus_steps().len();
+    let tgt_stylus = target_report.stylus_steps().len();
+    let stylus_delta = tgt_stylus as f64 - base_stylus as f64;
+    let stylus_pct = if base_stylus > 0 { stylus_delta / base_stylus as f64 * 100.0 } else { 0.0 };
     println!(
-        "  {:<30} {} EVM | {} Stylus",
-        "Target steps:".bold(),
-        tgt_evm.to_string().green(),
-        target_report.stylus_steps().len().to_string().yellow()
+        "  {:<25} {:<15} {:<15} {}",
+        "Stylus Cross-VM Calls:",
+        base_stylus.to_string().green(),
+        tgt_stylus.to_string().yellow(),
+        colorize_delta(stylus_delta, stylus_pct)
     );
     println!("{div}");
+
+    let format_plain_delta = |delta: f64, pct: f64| -> String {
+        let sign = if delta >= 0.0 { "+" } else { "" };
+        format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
+    };
+
+    if markdown {
+        let md = format!(
+            "## 🏮 Atupa Gas Regression Report\n\n\
+            | Metric | Base | Target | Delta |\n\
+            |--------|------|--------|-------|\n\
+            | **Total Gas** | {} | {} | {} |\n\
+            | **Execution Gas** | {} | {} | {} |\n\
+            | **EVM Steps** | {} | {} | {} |\n\
+            | **Stylus Calls** | {} | {} | {} |\n\n\
+            *Profiled via Atupa Unified Tracer*\n",
+            base_total_gas, target_total_gas, format_plain_delta(total_gas_delta, total_gas_pct),
+            base_unified_cost, target_unified_cost, format_plain_delta(unified_delta, unified_pct),
+            base_evm, tgt_evm, format_plain_delta(evm_delta, evm_pct),
+            base_stylus, tgt_stylus, format_plain_delta(stylus_delta, stylus_pct)
+        );
+        let out_path = format!("artifacts/diff/{}_vs_{}.md", &base[..10], &target[..10]);
+        std::fs::create_dir_all("artifacts/diff").ok();
+        std::fs::write(&out_path, md).context("Failed to write markdown diff")?;
+        println!("  📝 Markdown report written to {}", out_path.cyan());
+    }
+
+    if svg {
+        println!("  ⚠️ Visual Diff Flamegraph (SVG) generation is under construction.");
+    }
+
+    // Threshold Engine Evaluation
+    let mut failures = Vec::new();
+
+    let config_toml = if let Some(path) = diff_config {
+        AtupaConfigToml::load(std::path::Path::new(&path)).ok()
+    } else {
+        AtupaConfigToml::auto_load()
+    };
+
+    if let Some(t) = threshold {
+        // Simple Mode override
+        if total_gas_pct > t {
+            failures.push(format!("Total Gas increased by {:.1}% (limit: {:.1}%)", total_gas_pct, t));
+        }
+    } else if let Some(ref cfg) = config_toml {
+        // TOML Config evaluation
+        if let Some(diff_cfg) = &cfg.diff {
+            if let Some(max_total) = diff_cfg.max_total_gas_increase_percent {
+                if total_gas_pct > max_total {
+                    failures.push(format!("Total Gas increased by {:.1}% (limit: {:.1}%)", total_gas_pct, max_total));
+                }
+            }
+            if let Some(max_exec) = diff_cfg.max_execution_gas_increase_percent {
+                if unified_pct > max_exec {
+                    failures.push(format!("Execution Gas increased by {:.1}% (limit: {:.1}%)", unified_pct, max_exec));
+                }
+            }
+            if let Some(max_evm) = diff_cfg.max_evm_steps_increase {
+                if evm_delta > max_evm as f64 {
+                    failures.push(format!("EVM Steps increased by {:.0} (limit: {})", evm_delta, max_evm));
+                }
+            }
+            if let Some(max_stylus) = diff_cfg.max_stylus_calls_increase {
+                if stylus_delta > max_stylus as f64 {
+                    failures.push(format!("Stylus Calls increased by {:.0} (limit: {})", stylus_delta, max_stylus));
+                }
+            }
+        }
+    }
+
+    if !failures.is_empty() {
+        println!("\n  {}", "❌ [FAILED] Regression detected:".red().bold());
+        for f in failures {
+            println!("     - {}", f.red());
+        }
+        return Err(anyhow::anyhow!("Gas regression thresholds exceeded"));
+    } else if threshold.is_some() || config_toml.is_some() {
+        println!("\n  {} Execution cost within acceptable limits.", "✅ [PASSED]".green().bold());
+    }
 
     Ok(())
 }
