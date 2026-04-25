@@ -14,49 +14,54 @@ if [ "$1" == "--dry-run" ]; then
     echo "🔍 Performing DRY RUN..."
 fi
 
+# Robust publish function
+publish_crate() {
+    local crate=$1
+    local delay=$2
+    echo "📦 Publishing $crate..."
+    
+    # Run publish and capture output/exit status
+    set +e
+    output=$(cargo publish -p "$crate" $DRY_RUN 2>&1)
+    status=$?
+    set -e
+    
+    if [ $status -eq 0 ]; then
+        echo "✅ Success: $crate"
+    elif echo "$output" | grep -q "already exists"; then
+        echo "⚠️  Already published: $crate"
+    else
+        echo "❌ FAILED: $crate"
+        echo "$output"
+        exit 1
+    fi
+
+    if [ -n "$delay" ] && [ "$DRY_RUN" == "" ]; then
+        echo "⏳ Waiting ${delay}s for crates.io index..."
+        sleep "$delay"
+    fi
+}
+
 # 1. Foundation
-echo "📦 Publishing atupa-core..."
-cargo publish -p atupa-core $DRY_RUN 2>&1 | grep -q "already exists" && echo "⚠️ Already published" || true
-sleep 10
+publish_crate "atupa-core" 10
 
 # 2. Level 1 - Independent / Base modules
-echo "📦 Publishing atupa-rpc..."
-cargo publish -p atupa-rpc $DRY_RUN 2>&1 | grep -q "already exists" && echo "⚠️ Already published" || true
-sleep 10
-
-echo "📦 Publishing atupa-adapters..."
-cargo publish -p atupa-adapters $DRY_RUN 2>&1 | grep -q "already exists" && echo "⚠️ Already published" || true
-sleep 10
+publish_crate "atupa-rpc" 10
+publish_crate "atupa-adapters" 10
 
 # 3. Level 2 - Core Parsing & Visuals
-echo "📦 Publishing atupa-parser..."
-cargo publish -p atupa-parser $DRY_RUN 2>&1 | grep -q "already exists" && echo "⚠️ Already published" || true
-sleep 10
-
-echo "📦 Publishing atupa-output..."
-cargo publish -p atupa-output $DRY_RUN 2>&1 | grep -q "already exists" && echo "⚠️ Already published" || true
-sleep 10
+publish_crate "atupa-parser" 10
+publish_crate "atupa-output" 15
 
 # 4. Level 3 - Protocol Adapters
-echo "📦 Publishing atupa-aave..."
-cargo publish -p atupa-aave $DRY_RUN 2>&1 | grep -q "already exists" && echo "⚠️ Already published" || true
-sleep 10
-
-echo "📦 Publishing atupa-lido..."
-cargo publish -p atupa-lido $DRY_RUN 2>&1 | grep -q "already exists" && echo "⚠️ Already published" || true
-sleep 10
-
-echo "📦 Publishing atupa-nitro..."
-cargo publish -p atupa-nitro $DRY_RUN 2>&1 | grep -q "already exists" && echo "⚠️ Already published" || true
-sleep 15 # Longer sleep before SDK
+publish_crate "atupa-aave" 10
+publish_crate "atupa-lido" 10
+publish_crate "atupa-nitro" 20
 
 # 5. Facade SDK (Depends on adapters)
-echo "📦 Publishing atupa-sdk..."
-cargo publish -p atupa-sdk $DRY_RUN 2>&1 | grep -q "already exists" && echo "⚠️ Already published" || true
-sleep 20 # Longest sleep before final CLI binary
+publish_crate "atupa-sdk" 30
 
 # 6. Final Binary (Depends on everything)
-echo "📦 Publishing atupa (binary)..."
-cargo publish -p atupa $DRY_RUN 2>&1 | grep -q "already exists" && echo "⚠️ Already published" || true
+publish_crate "atupa"
 
 echo "✅ All crates processed successfully!"
