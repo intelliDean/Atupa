@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react';
+
 interface Props {
   label: string;
   value: string;
-  sub?: string;
+  sub?: ReactNode;
   kind: 'evm' | 'stylus' | 'boundary' | 'steps';
   icon?: string;
 }

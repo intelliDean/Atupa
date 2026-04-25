@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import type { StitchedReport } from '../types/trace';
+import type { StudioReport } from '../types/trace';
 
 interface Props {
-  onLoad: (report: StitchedReport) => void;
+  onLoad: (report: StudioReport) => void;
 }
 
 export function DragDropZone({ onLoad }: Props) {
@@ -18,9 +18,12 @@ export function DragDropZone({ onLoad }: Props) {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          const data = JSON.parse(e.target?.result as string) as StitchedReport;
-          if (!data.tx_hash || !Array.isArray(data.steps)) {
-            setError('File does not appear to be an Atupa trace report.');
+          const data = JSON.parse(e.target?.result as string) as StudioReport;
+          const isSingle = (data as any).tx_hash && Array.isArray((data as any).steps);
+          const isDiffReport = (data as any).type === 'diff' && (data as any).base && (data as any).target;
+          
+          if (!isSingle && !isDiffReport) {
+            setError('File does not appear to be an Atupa trace report or comparison.');
             return;
           }
           setError(null);

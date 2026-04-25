@@ -7,9 +7,9 @@ import {
   shortHash,
   evmSteps,
   stylusSteps,
-  StudioReport,
   isDiff,
 } from './types/trace';
+import type { StudioReport } from './types/trace';
 import { reportToTree } from './types/reportToTree';
 import { DragDropZone } from './components/DragDropZone';
 import { MetricCard } from './components/MetricCard';
@@ -53,9 +53,9 @@ export default function App() {
     setFlameSearch('');
   }, []);
 
-  const hostIOs = report ? aggregateHostIOs(report) : [];
+  const hostIOs = report ? aggregateHostIOs(isDiff(report) ? report.target : report) : [];
   const flameRoot = useMemo(
-    () => (report ? reportToTree(report) : null),
+    () => (report ? reportToTree(isDiff(report) ? report.target : report) : null),
     [report],
   );
 
@@ -178,35 +178,35 @@ export default function App() {
                       kind="evm"
                       icon="⛽"
                       label="EVM Trace Gas"
-                      value={fmtGas(report.total_evm_gas)}
+                      value={fmtGas(isDiff(report) ? report.target.total_evm_gas : report.total_evm_gas)}
                       sub="gas units"
                     />
                     <MetricCard
                       kind="stylus"
                       icon="🦾"
                       label="Stylus Ink"
-                      value={fmtGas(report.total_stylus_ink)}
-                      sub={`≈ ${fmtEquiv(report.total_stylus_gas_equiv)} gas-equiv`}
+                      value={fmtGas(isDiff(report) ? report.target.total_stylus_ink : report.total_stylus_ink)}
+                      sub={`≈ ${fmtEquiv(isDiff(report) ? report.target.total_stylus_gas_equiv : report.total_stylus_gas_equiv)} gas-equiv`}
                     />
                     <MetricCard
                       kind="steps"
                       icon="🧩"
                       label="EVM Steps"
-                      value={fmtGas(evmSteps(report).length)}
+                      value={fmtGas(evmSteps(isDiff(report) ? report.target : report).length)}
                       sub="struct log entries"
                     />
                     <MetricCard
                       kind="stylus"
                       icon="📡"
                       label="Stylus HostIOs"
-                      value={fmtGas(stylusSteps(report).length)}
+                      value={fmtGas(stylusSteps(isDiff(report) ? report.target : report).length)}
                       sub="WASM host calls"
                     />
                     <MetricCard
                       kind="boundary"
                       icon="⇌"
                       label="VM Boundaries"
-                      value={fmtGas(report.vm_boundary_count)}
+                      value={fmtGas(isDiff(report) ? report.target.vm_boundary_count : report.vm_boundary_count)}
                       sub="EVM → WASM crossings"
                     />
                   </div>
@@ -272,10 +272,10 @@ export default function App() {
                   <span className="section-title">🧩 Unified Execution Trace</span>
                   <div className="section-divider" />
                   <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    {report.steps.length.toLocaleString()} total steps
+                    {(isDiff(report) ? report.target.steps : report.steps).length.toLocaleString()} total steps
                   </span>
                 </div>
-                <TraceInspector report={report} />
+                <TraceInspector report={isDiff(report) ? report.target : report} />
               </div>
             )}
           </>

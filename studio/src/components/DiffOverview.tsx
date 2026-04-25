@@ -1,4 +1,5 @@
-import { DiffReport, fmtGas, fmtEquiv } from '../types/trace';
+import { fmtGas, fmtEquiv } from '../types/trace';
+import type { DiffReport } from '../types/trace';
 import { MetricCard } from './MetricCard';
 import { CategoryBreakdown } from './CategoryBreakdown';
 
