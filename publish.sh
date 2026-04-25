@@ -35,6 +35,30 @@ publish_crate() {
         echo "$output"
         exit 1
     fi
+}
+
+# Robust publish function with flags
+publish_crate_with_flags() {
+    local crate=$1
+    local delay=$2
+    local flags=$3
+    echo "📦 Publishing $crate with flags [$flags]..."
+    
+    # Run publish and capture output/exit status
+    set +e
+    output=$(cargo publish -p "$crate" $DRY_RUN $flags 2>&1)
+    status=$?
+    set -e
+    
+    if [ $status -eq 0 ]; then
+        echo "✅ Success: $crate"
+    elif echo "$output" | grep -q "already exists"; then
+        echo "⚠️  Already published: $crate"
+    else
+        echo "❌ FAILED: $crate"
+        echo "$output"
+        exit 1
+    fi
 
     if [ -n "$delay" ] && [ "$DRY_RUN" == "" ]; then
         echo "⏳ Waiting ${delay}s for crates.io index..."
@@ -71,7 +95,7 @@ else
     exit 1
 fi
 
-publish_crate "atupa"
+publish_crate_with_flags "atupa" 0 "--allow-dirty"
 
 # Cleanup
 rm -rf bin/atupa/dist
