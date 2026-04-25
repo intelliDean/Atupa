@@ -136,6 +136,20 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'studio/package-lock.json'
+
+      - name: Build Atupa Studio
+        shell: bash
+        run: |
+          cd studio
+          npm install
+          npm run build
+
       - name: Publish Workspace
         shell: bash
         env:
