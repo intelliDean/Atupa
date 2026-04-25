@@ -5,7 +5,7 @@ edition = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
-readme = "README.md"
+readme = { workspace = true }
 homepage = { workspace = true }
 documentation = { workspace = true }
 description = "Arbitrum Nitro & Stylus unified tracing adapter for the Atupa engine"

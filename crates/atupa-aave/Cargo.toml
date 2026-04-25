@@ -5,7 +5,7 @@ edition = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
-readme = "README.md"
+readme = { workspace = true }
 homepage = { workspace = true }
 documentation = { workspace = true }
 description = "DeepTracer: Aave v3 & GHO protocol adapter for the Atupa EVM profiling engine"
