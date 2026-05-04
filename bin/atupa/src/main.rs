@@ -42,10 +42,10 @@ use thresholds::AtupaConfigToml;
 #[command(
     name = "atupa",
     bin_name = "atupa",
-    about = "🏮 Atupa — Unified Ethereum & Stylus Execution Profiler",
+    about = "🏮 Atupa — Universal Multi-VM Execution Profiler",
     long_about = "\
-Inspect, profile, and audit transactions across the full Arbitrum Nitro\n\
-dual-VM stack (EVM + Stylus WASM). Part of the One Block infrastructure suite.\n\
+Inspect, profile, and audit transactions across Multi-VM\n\
+Part of the One Block infrastructure suite.\n\
 SOURCE: https://github.com/One-Block-Org/Atupa",
     version
 )]
@@ -351,370 +351,15 @@ async fn cmd_capture(
     eprintln!("{} {}", "→ Transaction:".bold(), tx.cyan());
     eprintln!("{} {}\n", "→ Endpoint:   ".bold(), config.rpc_url.dimmed());
 
-    // Phase 1: fetch ──────────────────────────────────────────────────────────
-    if config.rpc_url.contains("starknet") {
-        let pb = spinner("Detecting Starknet network and fetching execution trace…");
-        let client = atupa_starknet::StarknetClient::new(config.rpc_url.clone());
-        let steps = client.profile_transaction(&tx).await.context(
-            "Failed to fetch Starknet trace — ensure the RPC endpoint is valid and accessible.",
-        )?;
-
-        pb.finish_with_message(format!(
-            "{} Captured Starknet trace ({} steps)",
-            "✔".green().bold(),
-            steps.len().to_string().cyan().bold()
-        ));
-
-        let mut svg_path: Option<String> = None;
-        if generate_profile {
-            let pb_svg = spinner("Generating SVG flamegraph…");
-            let normalized = TraceParser::normalize_raw(steps.clone());
-            let stacks = Aggregator::build_collapsed_stacks(&normalized);
-            let svg = SvgGenerator::generate_flamegraph(&stacks)
-                .context("SVG flamegraph generation failed")?;
-
-            let svg_suggestion = file.as_ref().map(|f| {
-                if f.ends_with(".json") {
-                    f.trim_end_matches(".json").to_string() + ".svg"
-                } else {
-                    f.to_string() + ".svg"
-                }
-            });
-            let svg_out = resolve_artifact_path(svg_suggestion, "capture", &tx, "svg");
-            std::fs::write(&svg_out, svg)
-                .with_context(|| format!("Failed to write SVG to '{svg_out}'"))?;
-
-            pb_svg.finish_with_message(format!(
-                "{} SVG saved → {}",
-                "✔".green().bold(),
-                svg_out.green().bold()
-            ));
-            svg_path = Some(svg_out);
-        }
-
-        let pb2 = spinner("Rendering report…");
-        let rendered = match format {
-            OutputFormat::Summary => format!(
-                "Starknet trace captured successfully with {} steps.",
-                steps.len()
-            ),
-            OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
-            OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
-        };
-        pb2.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
-
-        eprintln!();
-        if format == OutputFormat::Summary {
-            println!("{}", rendered);
-        }
-        eprintln!();
-
-        let report_path = resolve_artifact_path(file, "capture", &tx, "json");
-        std::fs::write(&report_path, &rendered)
-            .with_context(|| format!("Failed to write report to '{report_path}'"))?;
-
-        eprintln!(
-            "{} Report saved to {}",
-            "✔".green().bold(),
-            report_path.cyan().bold()
-        );
-
-        if let Some(ref svg) = svg_path {
-            eprintln!(
-                "{} SVG profile saved to {}",
-                "✔".green().bold(),
-                svg.cyan().bold()
-            );
-        }
-
-        return Ok(Some(report_path));
-    }
-
-    if config.rpc_url.contains("solana") {
-        let pb = spinner("Detecting Solana network and fetching execution trace…");
-        let client = atupa_solana::SolanaClient::new(config.rpc_url.clone());
-        let logs = client.get_transaction_logs(&tx).await.context(
-            "Failed to fetch Solana logs — ensure the RPC endpoint is valid and accessible.",
-        )?;
-
-        let steps = atupa_solana::SolanaLogStitcher::parse_logs(&logs);
-
-        pb.finish_with_message(format!(
-            "{} Reconstructed Solana trace ({} steps)",
-            "✔".green().bold(),
-            steps.len().to_string().cyan().bold()
-        ));
-
-        let mut svg_path: Option<String> = None;
-        if generate_profile {
-            let pb_svg = spinner("Generating SVG flamegraph…");
-            let normalized = TraceParser::normalize_raw(steps.clone());
-            let stacks = Aggregator::build_collapsed_stacks(&normalized);
-            let svg = SvgGenerator::generate_flamegraph(&stacks)
-                .context("SVG flamegraph generation failed")?;
-
-            let svg_suggestion = file.as_ref().map(|f| {
-                if f.ends_with(".json") {
-                    f.trim_end_matches(".json").to_string() + ".svg"
-                } else {
-                    f.to_string() + ".svg"
-                }
-            });
-            let svg_out = resolve_artifact_path(svg_suggestion, "capture", &tx, "svg");
-            std::fs::write(&svg_out, svg)
-                .with_context(|| format!("Failed to write SVG to '{svg_out}'"))?;
-
-            pb_svg.finish_with_message(format!(
-                "{} SVG saved → {}",
-                "✔".green().bold(),
-                svg_out.green().bold()
-            ));
-            svg_path = Some(svg_out);
-        }
-
-        let pb2 = spinner("Rendering report…");
-        let rendered = match format {
-            OutputFormat::Summary => format!(
-                "Solana trace reconstructed successfully with {} steps.",
-                steps.len()
-            ),
-            OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
-            OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
-        };
-        pb2.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
-
-        eprintln!();
-        if format == OutputFormat::Summary {
-            println!("{}", rendered);
-        }
-        eprintln!();
-
-        let report_path = resolve_artifact_path(file, "capture", &tx, "json");
-        std::fs::write(&report_path, &rendered)
-            .with_context(|| format!("Failed to write report to '{report_path}'"))?;
-
-        eprintln!(
-            "{} Report saved to {}",
-            "✔".green().bold(),
-            report_path.cyan().bold()
-        );
-
-        if let Some(ref svg) = svg_path {
-            eprintln!(
-                "{} SVG profile saved to {}",
-                "✔".green().bold(),
-                svg.cyan().bold()
-            );
-        }
-
-        return Ok(Some(report_path));
-    }
-
-    if config.rpc_url.contains("stellar") || config.rpc_url.contains("soroban") {
-        let pb = spinner("Detecting Stellar network and fetching diagnostic events…");
-        let client = atupa_stellar::StellarClient::new(config.rpc_url.clone());
-        let steps = client
-            .get_transaction_trace(&tx)
-            .await
-            .context("Failed to fetch Stellar diagnostic events — ensure the RPC endpoint supports Soroban traces.")?;
-
-        pb.finish_with_message(format!(
-            "{} Reconstructed Soroban trace ({} steps)",
-            "✔".green().bold(),
-            steps.len().to_string().cyan().bold()
-        ));
-
-        let mut svg_path: Option<String> = None;
-        if generate_profile {
-            let pb_svg = spinner("Generating SVG flamegraph…");
-            let normalized = TraceParser::normalize_raw(steps.clone());
-            let stacks = Aggregator::build_collapsed_stacks(&normalized);
-            let svg = SvgGenerator::generate_flamegraph(&stacks)
-                .context("SVG flamegraph generation failed")?;
-
-            let svg_suggestion = file.as_ref().map(|f| {
-                if f.ends_with(".json") {
-                    f.trim_end_matches(".json").to_string() + ".svg"
-                } else {
-                    f.to_string() + ".svg"
-                }
-            });
-            let svg_out = resolve_artifact_path(svg_suggestion, "capture", &tx, "svg");
-            std::fs::write(&svg_out, svg)
-                .with_context(|| format!("Failed to write SVG to '{svg_out}'"))?;
-
-            pb_svg.finish_with_message(format!(
-                "{} SVG saved → {}",
-                "✔".green().bold(),
-                svg_out.green().bold()
-            ));
-            svg_path = Some(svg_out);
-        }
-
-        let pb2 = spinner("Rendering report…");
-        let rendered = match format {
-            OutputFormat::Summary => format!(
-                "Stellar trace reconstructed successfully with {} host function calls.",
-                steps.len()
-            ),
-            OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
-            OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
-        };
-        pb2.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
-
-        eprintln!();
-        if format == OutputFormat::Summary {
-            println!("{}", rendered);
-        }
-        eprintln!();
-
-        let report_path = resolve_artifact_path(file, "capture", &tx, "json");
-        std::fs::write(&report_path, &rendered)
-            .with_context(|| format!("Failed to write report to '{report_path}'"))?;
-
-        eprintln!(
-            "{} Report saved to {}",
-            "✔".green().bold(),
-            report_path.cyan().bold()
-        );
-
-        if let Some(ref svg) = svg_path {
-            eprintln!(
-                "{} SVG profile saved to {}",
-                "✔".green().bold(),
-                svg.cyan().bold()
-            );
-        }
-
-        return Ok(Some(report_path));
-    }
-
-    let pb = spinner("Detecting network and fetching execution trace…");
-    let client = NitroClient::new(config.rpc_url.clone());
-
-    let mut report = client
-        .trace_transaction(&tx)
-        .await
-        .context("Failed to fetch trace — ensure the RPC endpoint is valid and accessible.")?;
-
-    let network_name = get_network_name(report.chain_id);
-    pb.finish_with_message(format!(
-        "{} Captured trace from {} ({} EVM steps{} )",
-        "✔".green().bold(),
-        network_name.cyan().bold(),
-        evm_count(&report).to_string().green(),
-        if report.total_stylus_ink > 0 {
-            format!(
-                " + {} Stylus HostIOs",
-                report.stylus_steps().len().to_string().yellow()
-            )
-        } else {
-            "".into()
-        }
-    ));
-
-    // Phase 1b: fetch receipt for on-chain gasUsed (non-fatal) ──────────────────
-    let eth_client = EthClient::new(config.rpc_url.clone());
-    report.on_chain_gas_used = eth_client.get_gas_used(&tx).await;
-
-    // Phase 1.5: resolve contract names ─────────────────────────────────────────
-    if let Some(key) = config.etherscan_key.clone() {
-        let pb_names = spinner("Resolving contract names via Etherscan…");
-        let resolver = atupa_rpc::etherscan::EtherscanResolver::new(Some(key), report.chain_id);
-
-        let mut addresses = std::collections::HashSet::new();
-        for step in &report.steps {
-            if let Some(evm) = &step.evm
-                && (evm.op.contains("CALL") || evm.op.contains("CREATE"))
-                && let Some(stack) = &evm.stack
-                && stack.len() >= 2
-            {
-                let hex_addr = &stack[stack.len() - 2];
-                let clean_hex = hex_addr.trim_start_matches("0x");
-                let padded = format!("{:0>40}", clean_hex);
-                let extracted = &padded[padded.len() - 40..];
-                addresses.insert(format!("0x{}", extracted));
-            }
-        }
-
-        for addr in addresses {
-            if let Some(name) = resolver.resolve_contract_name(&addr).await {
-                report.resolved_names.insert(addr, name);
-            }
-        }
-        pb_names.finish_with_message(format!(
-            "{} Resolved {} contract name(s) via Etherscan.",
-            "✔".green().bold(),
-            report.resolved_names.len().to_string().cyan().bold()
-        ));
-    }
-
-    // Phase 2: optional Flamegraph SVG (built from already-fetched report — no second RPC call) ──
-    let mut svg_path: Option<String> = None;
-    if generate_profile {
-        let pb_svg = spinner("Generating SVG flamegraph…");
-
-        // Convert report steps → collapsed stacks → SVG (zero extra RPC calls)
-        let trace_steps: Vec<atupa_core::TraceStep> =
-            report.steps.iter().map(|s| s.to_trace_step()).collect();
-        let normalized = TraceParser::normalize_raw(trace_steps);
-        let stacks = Aggregator::build_collapsed_stacks(&normalized);
-        let svg = SvgGenerator::generate_flamegraph(&stacks)
-            .context("SVG flamegraph generation failed")?;
-
-        let svg_suggestion = file.as_ref().map(|f| {
-            if f.ends_with(".json") {
-                f.trim_end_matches(".json").to_string() + ".svg"
-            } else {
-                f.to_string() + ".svg"
-            }
-        });
-        let svg_out = resolve_artifact_path(svg_suggestion, "capture", &tx, "svg");
-        std::fs::write(&svg_out, svg)
-            .with_context(|| format!("Failed to write SVG to '{svg_out}'"))?;
-
-        pb_svg.finish_with_message(format!(
-            "{} SVG saved → {}",
-            "✔".green().bold(),
-            svg_out.green().bold()
-        ));
-        svg_path = Some(svg_out);
-    }
-
-    // Phase 3: render report ──────────────────────────────────────────────────
-    let pb2 = spinner("Rendering report…");
-    let summary_text = render_capture_summary(&report);
-
-    let rendered = match format {
-        OutputFormat::Summary => summary_text.clone(),
-        OutputFormat::Json => serde_json::to_string_pretty(&report)?,
-        OutputFormat::Metric => format!("{:.4}", report.total_unified_cost),
+    let report_path = if config.rpc_url.contains("starknet") {
+        handle_starknet_capture(&config.rpc_url, &tx, format, file, generate_profile).await?
+    } else if config.rpc_url.contains("solana") {
+        handle_solana_capture(&config.rpc_url, &tx, format, file, generate_profile).await?
+    } else if config.rpc_url.contains("stellar") || config.rpc_url.contains("soroban") {
+        handle_stellar_capture(&config.rpc_url, &tx, format, file, generate_profile).await?
+    } else {
+        handle_nitro_capture(config, &tx, format, file, generate_profile).await?
     };
-    pb2.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
-
-    eprintln!();
-    println!("{}", summary_text);
-    eprintln!();
-
-    // Phase 4: output ─────────────────────────────────────────────────────────
-    let report_path = resolve_artifact_path(file, "capture", &tx, "json");
-
-    std::fs::write(&report_path, &rendered)
-        .with_context(|| format!("Failed to write report to '{report_path}'"))?;
-
-    eprintln!(
-        "{} Report saved to {}",
-        "✔".green().bold(),
-        report_path.cyan().bold()
-    );
-
-    if let Some(ref svg) = svg_path {
-        eprintln!(
-            "{} SVG profile saved to {}",
-            "✔".green().bold(),
-            svg.cyan().bold()
-        );
-    }
 
     Ok(Some(report_path))
 }
@@ -834,470 +479,25 @@ async fn cmd_diff(
     );
     eprintln!("{} {}\n", "→ Endpoint:".bold(), config.rpc_url.dimmed());
 
-    let client = NitroClient::new(config.rpc_url.clone());
-    let eth_client = EthClient::new(config.rpc_url.clone());
-
     if config.rpc_url.contains("solana") {
-        let solana_client = atupa_solana::SolanaClient::new(config.rpc_url.clone());
-        let pb = spinner("Fetching both Solana logs concurrently…");
-        let (base_logs, target_logs) = tokio::try_join!(
-            solana_client.get_transaction_logs(&base),
-            solana_client.get_transaction_logs(&target),
-        )
-        .context("Failed to fetch Solana logs")?;
-        pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
-        eprintln!();
-
-        let base_steps = atupa_solana::SolanaLogStitcher::parse_logs(&base_logs);
-        let target_steps = atupa_solana::SolanaLogStitcher::parse_logs(&target_logs);
-
-        return process_generic_diff(GenericDiffArgs {
-            network_name: "Solana",
-            unit_name: "Compute Units",
-            base_tx: &base,
-            target_tx: &target,
-            base_steps,
-            target_steps,
-            svg,
+        handle_solana_diff(&config.rpc_url, &base, &target, threshold, svg).await?;
+    } else if config.rpc_url.contains("starknet") {
+        handle_starknet_diff(&config.rpc_url, &base, &target, threshold, svg).await?;
+    } else if config.rpc_url.contains("stellar") || config.rpc_url.contains("soroban") {
+        handle_stellar_diff(&config.rpc_url, &base, &target, threshold, svg).await?;
+    } else {
+        handle_nitro_diff(
+            config,
+            &base,
+            &target,
             threshold,
-        });
-    }
-
-    if config.rpc_url.contains("starknet") {
-        let starknet_client = atupa_starknet::StarknetClient::new(config.rpc_url.clone());
-        let pb = spinner("Fetching both Starknet traces concurrently…");
-        let (base_steps, target_steps) = tokio::try_join!(
-            starknet_client.profile_transaction(&base),
-            starknet_client.profile_transaction(&target),
-        )
-        .context("Failed to fetch Starknet traces")?;
-        pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
-        eprintln!();
-
-        return process_generic_diff(GenericDiffArgs {
-            network_name: "Starknet Cairo",
-            unit_name: "Gas-Equivalent Steps",
-            base_tx: &base,
-            target_tx: &target,
-            base_steps,
-            target_steps,
+            diff_config,
+            markdown,
             svg,
-            threshold,
-        });
-    }
-
-    if config.rpc_url.contains("stellar") || config.rpc_url.contains("soroban") {
-        let stellar_client = atupa_stellar::StellarClient::new(config.rpc_url.clone());
-        let pb = spinner("Fetching both Stellar diagnostic events concurrently…");
-        let (base_steps, target_steps) = tokio::try_join!(
-            stellar_client.get_transaction_trace(&base),
-            stellar_client.get_transaction_trace(&target),
+            output_format,
+            protocol,
         )
-        .context("Failed to fetch Stellar traces")?;
-        pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
-        eprintln!();
-
-        return process_generic_diff(GenericDiffArgs {
-            network_name: "Stellar Soroban",
-            unit_name: "HostFn Weight",
-            base_tx: &base,
-            target_tx: &target,
-            base_steps,
-            target_steps,
-            svg,
-            threshold,
-        });
-    }
-
-    let pb = spinner("Fetching both traces and receipts concurrently…");
-
-    // Fetch traces
-    let (base_report, target_report) = tokio::try_join!(
-        client.trace_transaction(&base),
-        client.trace_transaction(&target),
-    )
-    .context("Failed to fetch one or both traces")?;
-
-    // Fetch receipts for actual gas used
-    let (base_receipt_gas, target_receipt_gas) = tokio::join!(
-        eth_client.get_gas_used(&base),
-        eth_client.get_gas_used(&target),
-    );
-
-    pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
-    eprintln!();
-
-    // Cost deltas
-    let base_unified_cost = base_report.total_unified_cost;
-    let target_unified_cost = target_report.total_unified_cost;
-    let unified_delta = target_unified_cost - base_unified_cost;
-    let unified_pct = if base_unified_cost > 0.0 {
-        unified_delta / base_unified_cost * 100.0
-    } else {
-        0.0
-    };
-
-    let base_total_gas = base_receipt_gas.unwrap_or(base_unified_cost as u64);
-    let target_total_gas = target_receipt_gas.unwrap_or(target_unified_cost as u64);
-    let total_gas_delta = target_total_gas as f64 - base_total_gas as f64;
-    let total_gas_pct = if base_total_gas > 0 {
-        total_gas_delta / base_total_gas as f64 * 100.0
-    } else {
-        0.0
-    };
-
-    let base_intrinsic = base_total_gas.saturating_sub(base_unified_cost as u64);
-    let target_intrinsic = target_total_gas.saturating_sub(target_unified_cost as u64);
-
-    let div = "─".repeat(70).dimmed().to_string();
-
-    println!("{}", "  EXECUTION DIFF".bold().underline());
-    println!("{div}");
-
-    // Print Table Header
-    println!(
-        "  {:<25} {:<15} {:<15} {}",
-        "Metric".bold(),
-        "Base".bold(),
-        "Target".bold(),
-        "Delta".bold()
-    );
-    println!("{div}");
-
-    let colorize_delta = |delta: f64, pct: f64| -> String {
-        let sign = if delta >= 0.0 { "+" } else { "" };
-        if delta > 0.0 {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
-                .red()
-                .to_string()
-        } else if delta < 0.0 {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
-                .green()
-                .to_string()
-        } else {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
-                .dimmed()
-                .to_string()
-        }
-    };
-
-    println!(
-        "  {:<25} {:<15} {:<15} {}",
-        "Total On-Chain Gas:",
-        base_total_gas.to_string().green(),
-        target_total_gas.to_string().yellow(),
-        colorize_delta(total_gas_delta, total_gas_pct)
-    );
-
-    println!(
-        "  {:<25} {:<15} {:<15} {}",
-        "↳ Execution Gas (EVM):",
-        base_unified_cost.to_string().cyan(),
-        target_unified_cost.to_string().cyan(),
-        colorize_delta(unified_delta, unified_pct)
-    );
-
-    let intrinsic_delta = target_intrinsic as f64 - base_intrinsic as f64;
-    let intrinsic_pct = if base_intrinsic > 0 {
-        intrinsic_delta / base_intrinsic as f64 * 100.0
-    } else {
-        0.0
-    };
-    println!(
-        "  {:<25} {:<15} {:<15} {}",
-        "↳ Intrinsic Gas:",
-        base_intrinsic.to_string().dimmed(),
-        target_intrinsic.to_string().dimmed(),
-        colorize_delta(intrinsic_delta, intrinsic_pct)
-    );
-
-    println!("{div}");
-
-    // Step count comparison
-    let base_evm = evm_count(&base_report);
-    let tgt_evm = evm_count(&target_report);
-    let evm_delta = tgt_evm as f64 - base_evm as f64;
-    let evm_pct = if base_evm > 0 {
-        evm_delta / base_evm as f64 * 100.0
-    } else {
-        0.0
-    };
-    println!(
-        "  {:<25} {:<15} {:<15} {}",
-        "EVM Steps:",
-        base_evm.to_string().green(),
-        tgt_evm.to_string().yellow(),
-        colorize_delta(evm_delta, evm_pct)
-    );
-
-    let base_stylus = base_report.stylus_steps().len();
-    let tgt_stylus = target_report.stylus_steps().len();
-    let stylus_delta = tgt_stylus as f64 - base_stylus as f64;
-    let stylus_pct = if base_stylus > 0 {
-        stylus_delta / base_stylus as f64 * 100.0
-    } else {
-        0.0
-    };
-    println!(
-        "  {:<25} {:<15} {:<15} {}",
-        "Stylus Cross-VM Calls:",
-        base_stylus.to_string().green(),
-        tgt_stylus.to_string().yellow(),
-        colorize_delta(stylus_delta, stylus_pct)
-    );
-    println!("{div}");
-
-    // ── Protocol Deep Diff (opt-in) ──────────────────────────────────────────
-    let mut proto_diff_rows: Vec<atupa_core::DiffRow> = Vec::new();
-    let mut proto_name = String::new();
-
-    if let Some(ref proto) = protocol {
-        let base_steps: Vec<TraceStep> = base_report
-            .steps
-            .iter()
-            .map(|s| s.to_trace_step())
-            .collect();
-        let target_steps: Vec<TraceStep> = target_report
-            .steps
-            .iter()
-            .map(|s| s.to_trace_step())
-            .collect();
-
-        let proto_report = match proto {
-            Protocol::Aave => {
-                let tracer = AaveDeepTracer::new();
-                tracer.diff_reports(&base, &base_steps, &target, &target_steps)
-            }
-            Protocol::Lido => {
-                let tracer = LidoDeepTracer::new();
-                tracer.diff_reports(&base, &base_steps, &target, &target_steps)
-            }
-        };
-
-        match proto_report {
-            Ok(report) => {
-                proto_name = report.protocol.clone();
-                let proto_div = "─".repeat(70).dimmed().to_string();
-                println!(
-                    "\n  {} DEEP DIFF",
-                    proto_name.to_uppercase().bold().underline()
-                );
-                println!("{proto_div}");
-                println!(
-                    "  {:<28} {:<15} {:<15} {}",
-                    "Metric".bold(),
-                    "Base".bold(),
-                    "Target".bold(),
-                    "Delta".bold()
-                );
-                println!("{proto_div}");
-
-                for row in &report.rows {
-                    let sign = if row.delta >= 0.0 { "+" } else { "" };
-                    let delta_str = format!("{sign}{:.0} ({sign}{:.1}%)", row.delta, row.pct);
-                    let delta_colored = if row.delta == 0.0 {
-                        delta_str.dimmed().to_string()
-                    } else if (row.delta > 0.0) == row.higher_is_worse {
-                        delta_str.red().to_string() // bad change
-                    } else {
-                        delta_str.green().to_string() // good change
-                    };
-                    println!(
-                        "  {:<28} {:<15} {:<15} {}",
-                        row.metric,
-                        row.base.to_string().dimmed(),
-                        row.target.to_string().dimmed(),
-                        delta_colored
-                    );
-                    proto_diff_rows.push(row.clone());
-                }
-                println!("{proto_div}");
-            }
-            Err(e) => {
-                eprintln!("  ⚠ Protocol deep diff skipped: {e}");
-            }
-        }
-    }
-
-    let format_plain_delta = |delta: f64, pct: f64| -> String {
-        let sign = if delta >= 0.0 { "+" } else { "" };
-        format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
-    };
-
-    if markdown {
-        let md = format!(
-            "## 🏮 Atupa Gas Regression Report\n\n\
-            | Metric | Base | Target | Delta |\n\
-            |--------|------|--------|-------|\n\
-            | **Total Gas** | {} | {} | {} |\n\
-            | **Execution Gas** | {} | {} | {} |\n\
-            | **EVM Steps** | {} | {} | {} |\n\
-            | **Stylus Calls** | {} | {} | {} |\n\n\
-            *Profiled via Atupa Unified Tracer*\n",
-            base_total_gas,
-            target_total_gas,
-            format_plain_delta(total_gas_delta, total_gas_pct),
-            base_unified_cost,
-            target_unified_cost,
-            format_plain_delta(unified_delta, unified_pct),
-            base_evm,
-            tgt_evm,
-            format_plain_delta(evm_delta, evm_pct),
-            base_stylus,
-            tgt_stylus,
-            format_plain_delta(stylus_delta, stylus_pct)
-        );
-        let out_path = format!("artifacts/diff/{}_vs_{}.md", &base[..10], &target[..10]);
-        std::fs::create_dir_all("artifacts/diff").ok();
-
-        // Append protocol deep diff to markdown if available
-        let proto_section = if !proto_diff_rows.is_empty() {
-            let mut section = format!("\n### 🔬 {} Protocol Deep Diff\n\n", proto_name);
-            section.push_str("| Metric | Base | Target | Delta |\n");
-            section.push_str("|--------|------|--------|-------|\n");
-            for row in &proto_diff_rows {
-                let sign = if row.delta >= 0.0 { "+" } else { "" };
-                let emoji = if row.delta == 0.0 {
-                    ""
-                } else if (row.delta > 0.0) == row.higher_is_worse {
-                    "🔴 "
-                } else {
-                    "🟢 "
-                };
-                section.push_str(&format!(
-                    "| **{}** | {} | {} | {}{}{:.0} ({}{:.1}%) |\n",
-                    row.metric, row.base, row.target, emoji, sign, row.delta, sign, row.pct
-                ));
-            }
-            section
-        } else {
-            String::new()
-        };
-
-        std::fs::write(&out_path, md + &proto_section).context("Failed to write markdown diff")?;
-        println!("  📝 Markdown report written to {}", out_path.cyan());
-    }
-
-    if svg {
-        let base_trace_steps: Vec<atupa_core::TraceStep> = base_report
-            .steps
-            .iter()
-            .map(|s| s.to_trace_step())
-            .collect();
-        let base_normalized = TraceParser::normalize_raw(base_trace_steps);
-        let base_stacks = Aggregator::build_collapsed_stacks(&base_normalized);
-
-        let target_trace_steps: Vec<atupa_core::TraceStep> = target_report
-            .steps
-            .iter()
-            .map(|s| s.to_trace_step())
-            .collect();
-        let target_normalized = TraceParser::normalize_raw(target_trace_steps);
-        let target_stacks = Aggregator::build_collapsed_stacks(&target_normalized);
-
-        let svg_content = atupa_output::generate_diff_flamegraph(&base_stacks, &target_stacks)?;
-        let svg_path = format!("artifacts/diff/{}_vs_{}.svg", &base[..10], &target[..10]);
-        std::fs::create_dir_all("artifacts/diff").ok();
-        std::fs::write(&svg_path, svg_content).context("Failed to write diff flamegraph SVG")?;
-        println!("  🔥 Visual diff flamegraph written to {}", svg_path.cyan());
-    }
-
-    // Threshold Engine Evaluation
-    let mut failures = Vec::new();
-
-    let config_toml = if let Some(path) = diff_config {
-        AtupaConfigToml::load(std::path::Path::new(&path)).ok()
-    } else {
-        AtupaConfigToml::auto_load()
-    };
-
-    if let Some(t) = threshold {
-        // Simple Mode override
-        if total_gas_pct > t {
-            failures.push(format!(
-                "Total Gas increased by {:.1}% (limit: {:.1}%)",
-                total_gas_pct, t
-            ));
-        }
-    } else if let Some(ref cfg) = config_toml {
-        // TOML Config evaluation
-        if let Some(diff_cfg) = &cfg.diff {
-            if let Some(max_total) = diff_cfg.max_total_gas_increase_percent {
-                if total_gas_pct > max_total {
-                    failures.push(format!(
-                        "Total Gas increased by {:.1}% (limit: {:.1}%)",
-                        total_gas_pct, max_total
-                    ));
-                }
-            }
-            if let Some(max_exec) = diff_cfg.max_execution_gas_increase_percent {
-                if unified_pct > max_exec {
-                    failures.push(format!(
-                        "Execution Gas increased by {:.1}% (limit: {:.1}%)",
-                        unified_pct, max_exec
-                    ));
-                }
-            }
-            if let Some(max_evm) = diff_cfg.max_evm_steps_increase {
-                if evm_delta > max_evm as f64 {
-                    failures.push(format!(
-                        "EVM Steps increased by {:.0} (limit: {})",
-                        evm_delta, max_evm
-                    ));
-                }
-            }
-            if let Some(max_stylus) = diff_cfg.max_stylus_calls_increase {
-                if stylus_delta > max_stylus as f64 {
-                    failures.push(format!(
-                        "Stylus Calls increased by {:.0} (limit: {})",
-                        stylus_delta, max_stylus
-                    ));
-                }
-            }
-        }
-    }
-
-    // Final Output Handling
-    if output_format == OutputFormat::Json {
-        let diff_report = serde_json::json!({
-            "type": "diff",
-            "protocol": protocol.map(|p| format!("{:?}", p)),
-            "base": {
-                "tx_hash": base,
-                "report": base_report,
-            },
-            "target": {
-                "tx_hash": target,
-                "report": target_report,
-            },
-            "metrics": {
-                "base_total_gas": base_total_gas,
-                "target_total_gas": target_total_gas,
-                "gas_delta": total_gas_delta,
-                "gas_pct": total_gas_pct,
-                "base_unified_cost": base_unified_cost,
-                "target_unified_cost": target_unified_cost,
-                "unified_delta": unified_delta,
-                "unified_pct": unified_pct,
-            }
-        });
-        println!("{}", serde_json::to_string_pretty(&diff_report)?);
-    } else {
-        if !failures.is_empty() {
-            println!("\n  {}", "❌ [FAILED] Regression detected:".red().bold());
-            for f in failures.iter() {
-                println!("     - {}", f.red());
-            }
-        } else if threshold.is_some() || config_toml.is_some() {
-            println!(
-                "\n  {} Execution cost within acceptable limits.",
-                "✅ [PASSED]".green().bold()
-            );
-        }
-    }
-
-    if !failures.is_empty() {
-        return Err(anyhow::anyhow!("Gas regression thresholds exceeded"));
+        .await?;
     }
 
     Ok(())
@@ -1314,7 +514,18 @@ struct GenericDiffArgs<'a> {
     threshold: Option<f64>,
 }
 
-fn process_generic_diff(args: GenericDiffArgs) -> Result<()> {
+struct GenericDiffData {
+    base_cost: u64,
+    target_cost: u64,
+    cost_delta: f64,
+    cost_pct: f64,
+    base_count: usize,
+    target_count: usize,
+    count_delta: f64,
+    count_pct: f64,
+}
+
+fn calculate_generic_diff_data(args: &GenericDiffArgs) -> GenericDiffData {
     let base_cost = args.base_steps.iter().map(|s| s.gas_cost).sum::<u64>();
     let target_cost = args.target_steps.iter().map(|s| s.gas_cost).sum::<u64>();
     let cost_delta = target_cost as f64 - base_cost as f64;
@@ -1333,6 +544,19 @@ fn process_generic_diff(args: GenericDiffArgs) -> Result<()> {
         0.0
     };
 
+    GenericDiffData {
+        base_cost,
+        target_cost,
+        cost_delta,
+        cost_pct,
+        base_count,
+        target_count,
+        count_delta,
+        count_pct,
+    }
+}
+
+fn print_generic_diff_summary(args: &GenericDiffArgs, data: &GenericDiffData) {
     let div = "─".repeat(70).dimmed().to_string();
 
     println!(
@@ -1371,49 +595,64 @@ fn process_generic_diff(args: GenericDiffArgs) -> Result<()> {
     println!(
         "  {:<25} {:<15} {:<15} {}",
         format!("Total {}:", args.unit_name),
-        base_cost.to_string().cyan(),
-        target_cost.to_string().cyan(),
-        colorize_delta(cost_delta, cost_pct)
+        data.base_cost.to_string().cyan(),
+        data.target_cost.to_string().cyan(),
+        colorize_delta(data.cost_delta, data.cost_pct)
     );
 
     println!(
         "  {:<25} {:<15} {:<15} {}",
         "Execution Steps:",
-        base_count.to_string().green(),
-        target_count.to_string().yellow(),
-        colorize_delta(count_delta, count_pct)
+        data.base_count.to_string().green(),
+        data.target_count.to_string().yellow(),
+        colorize_delta(data.count_delta, data.count_pct)
     );
     println!("{div}\n");
+}
 
+fn evaluate_generic_thresholds(args: &GenericDiffArgs, data: &GenericDiffData) -> Vec<String> {
     let mut failures = Vec::new();
-    if let Some(t) = args.threshold.filter(|&t| cost_pct > t) {
+    if let Some(t) = args.threshold.filter(|&t| data.cost_pct > t) {
         failures.push(format!(
-            "Total {} increased by {cost_pct:.1}% (limit: {t:.1}%)",
-            args.unit_name
+            "Total {} increased by {:.1}% (limit: {:.1}%)",
+            args.unit_name, data.cost_pct, t
         ));
     }
+    failures
+}
+
+fn generate_generic_diff_svg(args: &GenericDiffArgs) -> Result<()> {
+    let pb_svg = spinner("Generating diff flamegraph…");
+    let base_norm = TraceParser::normalize_raw(args.base_steps.clone());
+    let target_norm = TraceParser::normalize_raw(args.target_steps.clone());
+    let base_stacks = Aggregator::build_collapsed_stacks(&base_norm);
+    let target_stacks = Aggregator::build_collapsed_stacks(&target_norm);
+
+    let svg_out = atupa_output::generate_diff_flamegraph(&base_stacks, &target_stacks)
+        .context("SVG diff generation failed")?;
+    let out_path = format!(
+        "artifacts/diff/{}_vs_{}.svg",
+        &args.base_tx[..10],
+        &args.target_tx[..10]
+    );
+    std::fs::create_dir_all("artifacts/diff").ok();
+    std::fs::write(&out_path, svg_out).context("Failed to write diff SVG")?;
+    pb_svg.finish_with_message(format!(
+        "{} Diff SVG saved → {}",
+        "✔".green().bold(),
+        out_path.cyan()
+    ));
+    Ok(())
+}
+
+fn process_generic_diff(args: GenericDiffArgs) -> Result<()> {
+    let data = calculate_generic_diff_data(&args);
+    print_generic_diff_summary(&args, &data);
+
+    let failures = evaluate_generic_thresholds(&args, &data);
 
     if args.svg {
-        let pb_svg = spinner("Generating diff flamegraph…");
-        let base_norm = TraceParser::normalize_raw(args.base_steps);
-        let target_norm = TraceParser::normalize_raw(args.target_steps);
-        let base_stacks = Aggregator::build_collapsed_stacks(&base_norm);
-        let target_stacks = Aggregator::build_collapsed_stacks(&target_norm);
-
-        let svg_out = atupa_output::generate_diff_flamegraph(&base_stacks, &target_stacks)
-            .context("SVG diff generation failed")?;
-        let out_path = format!(
-            "artifacts/diff/{}_vs_{}.svg",
-            &args.base_tx[..10],
-            &args.target_tx[..10]
-        );
-        std::fs::create_dir_all("artifacts/diff").ok();
-        std::fs::write(&out_path, svg_out).context("Failed to write diff SVG")?;
-        pb_svg.finish_with_message(format!(
-            "{} Diff SVG saved → {}",
-            "✔".green().bold(),
-            out_path.cyan()
-        ));
+        generate_generic_diff_svg(&args)?;
     }
 
     if !failures.is_empty() {
@@ -1536,19 +775,44 @@ fn hostio_category_color(label: &str) -> &'static str {
 }
 
 fn render_capture_summary(report: &StitchedReport) -> String {
-    const RESET: &str = "\x1b[0m";
     let div = "─".repeat(56).dimmed().to_string();
-    let wide_div = "━".repeat(72);
     let mut out = String::new();
 
     out += &format!(
-        "  {} ({})\n",
+        "  {} ({})\n{}\n",
         "UNIFIED EXECUTION SUMMARY".bold().underline(),
-        get_network_name(report.chain_id).cyan()
+        get_network_name(report.chain_id).cyan(),
+        div
     );
-    out += &format!("{div}\n");
 
-    // ── Gas totals with Execution vs Intrinsic split ───────────────────────────────
+    out += &render_gas_totals(report);
+    out += &format!("{div}\n");
+    out += &format!(
+        "  {:<34} {}\n{}\n",
+        "TOTAL UNIFIED COST:".bold().cyan(),
+        format!("{:.2} gas", report.total_unified_cost)
+            .cyan()
+            .bold(),
+        div
+    );
+
+    out += &format!(
+        "  {:<34} {}\n",
+        "EVM Steps:".bold(),
+        evm_count(report).to_string().green()
+    );
+
+    let stylus = report.stylus_steps();
+    if !stylus.is_empty() {
+        out += &render_stylus_summary(report, &stylus, &div);
+    }
+
+    out += &format!("  tx  {}\n", report.tx_hash.dimmed());
+    out
+}
+
+fn render_gas_totals(report: &StitchedReport) -> String {
+    let mut out = String::new();
     if let Some(on_chain) = report.on_chain_gas_used {
         let execution_gas = report.total_evm_gas;
         let intrinsic_gas = on_chain.saturating_sub(execution_gas);
@@ -1595,118 +859,115 @@ fn render_capture_summary(report: &StitchedReport) -> String {
             report.vm_boundary_count.to_string().magenta()
         );
     }
+    out
+}
 
-    out += &format!("{div}\n");
+fn render_stylus_summary(
+    report: &StitchedReport,
+    stylus: &[&atupa_nitro::UnifiedStep],
+    div: &str,
+) -> String {
+    let mut out = String::new();
+    let mut grouped: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    for step in stylus.iter() {
+        *grouped.entry(step.label.clone()).or_insert(0.0) += step.cost_equiv;
+    }
+    let mut aggregated: Vec<(String, f64)> = grouped.into_iter().collect();
+    aggregated.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+    let total_ink_gas: f64 = aggregated.iter().map(|(_, c)| c).sum();
+    let unique_paths = aggregated.len();
+
     out += &format!(
         "  {:<34} {}\n",
-        "TOTAL UNIFIED COST:".bold().cyan(),
-        format!("{:.2} gas", report.total_unified_cost)
-            .cyan()
-            .bold()
+        "Stylus HostIO Calls:".bold(),
+        stylus.len().to_string().yellow()
     );
-    out += &format!("{div}\n");
-
-    // EVM step count always shown
     out += &format!(
         "  {:<34} {}\n",
-        "EVM Steps:".bold(),
-        evm_count(report).to_string().green()
+        "Unique HostIO Paths:".bold(),
+        unique_paths.to_string().yellow()
     );
 
-    // Stylus section — only when HostIO steps exist
-    let stylus = report.stylus_steps();
-    if !stylus.is_empty() {
-        // Aggregate ink cost by label
-        let mut grouped: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
-        for step in stylus.iter() {
-            *grouped.entry(step.label.clone()).or_insert(0.0) += step.cost_equiv;
-        }
-        let mut aggregated: Vec<(String, f64)> = grouped.into_iter().collect();
-        aggregated.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-
-        let total_ink_gas: f64 = aggregated.iter().map(|(_, c)| c).sum();
-        let unique_paths = aggregated.len();
-
-        out += &format!(
-            "  {:<34} {}\n",
-            "Stylus HostIO Calls:".bold(),
-            stylus.len().to_string().yellow()
-        );
-        out += &format!(
-            "  {:<34} {}\n",
-            "Unique HostIO Paths:".bold(),
-            unique_paths.to_string().yellow()
-        );
-
-        if report.vm_boundary_count > 0 {
-            out += &format!("  {}\n", "EVM→WASM Boundary Details:".bold());
-            for (i, step) in report.boundary_steps().iter().take(5).enumerate() {
-                out += &format!(
-                    "    {}  {} at depth {}\n",
-                    format!("[{}]", i + 1).cyan(),
-                    step.label.bold(),
-                    step.depth.to_string().dimmed()
-                );
-            }
-            if report.vm_boundary_count > 5 {
-                out += &format!(
-                    "    … and {} more\n",
-                    (report.vm_boundary_count - 5).to_string().dimmed()
-                );
-            }
-        }
-
-        out += &format!("{div}\n");
-
-        // ── Colour-coded hot-path table ────────────────────────────────────
-        out += &format!("  {}\n", "🔥 STYLUS HOT PATHS".bold());
-        out += &format!("  {wide_div}\n");
-        out += &format!(
-            "  ┃ {:<42} ┃ {:>10} ┃ {:>14} ┃ {:>7} ┃\n",
-            "HostIO (Hottest First)", "GAS", "INK (raw)", "%"
-        );
-        out += &format!("  {wide_div}\n");
-        for (label, cost_gas) in aggregated.iter().take(10) {
-            let cost_ink = (cost_gas * 10_000.0) as u64;
-            let pct = if total_ink_gas > 0.0 {
-                cost_gas / total_ink_gas * 100.0
-            } else {
-                0.0
-            };
-            let color = hostio_category_color(label);
-            let gas_str = format!("{:.0}", cost_gas);
+    if report.vm_boundary_count > 0 {
+        out += &format!("  {}\n", "EVM→WASM Boundary Details:".bold());
+        for (i, step) in report.boundary_steps().iter().take(5).enumerate() {
             out += &format!(
-                "  ┃ {color}{:<42}{RESET} ┃ {gas_str:>10} ┃ {cost_ink:>14} ┃ {pct:>6.1}% ┃\n",
-                label,
+                "    {}  {} at depth {}\n",
+                format!("[{}]", i + 1).cyan(),
+                step.label.bold(),
+                step.depth.to_string().dimmed()
             );
         }
-        out += &format!("  {wide_div}\n");
-
-        // ── ASCII flamegraph ───────────────────────────────────────────────
-        out += &format!("\n  {}\n", "📊 SIMPLIFIED FLAMEGRAPH".bold());
-        out += "  root ██████████████████████████████████████████████████ 100%\n";
-        for (label, cost_gas) in aggregated.iter().take(5) {
-            let pct = if total_ink_gas > 0.0 {
-                cost_gas / total_ink_gas * 100.0
-            } else {
-                0.0
-            };
-            let bar_width = (pct / 2.0) as usize;
-            let bar = "█".repeat(bar_width);
-            let color = hostio_category_color(label);
+        if report.vm_boundary_count > 5 {
             out += &format!(
-                "  └─ {color}{:<20}{RESET} {color}{:<50}{RESET} {:>5.1}%\n",
-                label, bar, pct
+                "    … and {} more\n",
+                (report.vm_boundary_count - 5).to_string().dimmed()
             );
         }
-        if unique_paths > 10 {
-            out += &format!("\n   ({} of {} unique paths shown)\n", 10, unique_paths);
-        }
-
-        out += &format!("{div}\n");
     }
 
-    out += &format!("  tx  {}\n", report.tx_hash.dimmed());
+    out += &format!("{div}\n");
+    out += &render_hot_paths(&aggregated, total_ink_gas);
+    out += &render_ascii_flamegraph(&aggregated, total_ink_gas, unique_paths);
+    out += &format!("{div}\n");
+    out
+}
+
+fn render_hot_paths(aggregated: &[(String, f64)], total_ink_gas: f64) -> String {
+    let wide_div = "━".repeat(72);
+    let reset = "\x1b[0m";
+    let mut out = format!("  {}\n  {wide_div}\n", "🔥 STYLUS HOT PATHS".bold());
+    out += &format!(
+        "  ┃ {:<42} ┃ {:>10} ┃ {:>14} ┃ {:>7} ┃\n",
+        "HostIO (Hottest First)", "GAS", "INK (raw)", "%"
+    );
+    out += &format!("  {wide_div}\n");
+
+    for (label, cost_gas) in aggregated.iter().take(10) {
+        let cost_ink = (cost_gas * 10_000.0) as u64;
+        let pct = if total_ink_gas > 0.0 {
+            cost_gas / total_ink_gas * 100.0
+        } else {
+            0.0
+        };
+        let color = hostio_category_color(label);
+        let gas_str = format!("{:.0}", cost_gas);
+        out += &format!(
+            "  ┃ {color}{:<42}{reset} ┃ {gas_str:>10} ┃ {cost_ink:>14} ┃ {pct:>6.1}% ┃\n",
+            label
+        );
+    }
+    out += &format!("  {wide_div}\n");
+    out
+}
+
+fn render_ascii_flamegraph(
+    aggregated: &[(String, f64)],
+    total_ink_gas: f64,
+    unique_paths: usize,
+) -> String {
+    let reset = "\x1b[0m";
+    let mut out = format!("\n  {}\n", "📊 SIMPLIFIED FLAMEGRAPH".bold());
+    out += "  root ██████████████████████████████████████████████████ 100%\n";
+
+    for (label, cost_gas) in aggregated.iter().take(5) {
+        let pct = if total_ink_gas > 0.0 {
+            cost_gas / total_ink_gas * 100.0
+        } else {
+            0.0
+        };
+        let bar_width = (pct / 2.0) as usize;
+        let bar = "█".repeat(bar_width);
+        let color = hostio_category_color(label);
+        out += &format!(
+            "  └─ {color}{:<20}{reset} {color}{:<50}{reset} {:>5.1}%\n",
+            label, bar, pct
+        );
+    }
+    if unique_paths > 10 {
+        out += &format!("\n   ({} of {} unique paths shown)\n", 10, unique_paths);
+    }
     out
 }
 
@@ -1848,6 +1109,926 @@ fn print_lido_report(
         }
     );
     println!("{div}");
+}
+/// Unified helper to generate an SVG flamegraph and save it.
+fn generate_and_save_svg(
+    steps: &[atupa_core::TraceStep],
+    tx: &str,
+    file_option: &Option<String>,
+) -> Result<String> {
+    let pb_svg = spinner("Generating SVG flamegraph…");
+    let normalized = TraceParser::normalize_raw(steps.to_vec());
+    let stacks = Aggregator::build_collapsed_stacks(&normalized);
+    let svg =
+        SvgGenerator::generate_flamegraph(&stacks).context("SVG flamegraph generation failed")?;
+
+    let svg_suggestion = file_option.as_ref().map(|f| {
+        if f.ends_with(".json") {
+            f.trim_end_matches(".json").to_string() + ".svg"
+        } else {
+            f.to_string() + ".svg"
+        }
+    });
+    let svg_out = resolve_artifact_path(svg_suggestion, "capture", tx, "svg");
+    std::fs::write(&svg_out, svg).with_context(|| format!("Failed to write SVG to '{svg_out}'"))?;
+
+    pb_svg.finish_with_message(format!(
+        "{} SVG saved → {}",
+        "✔".green().bold(),
+        svg_out.green().bold()
+    ));
+    Ok(svg_out)
+}
+
+/// Helper to save the report to disk and print the final summary.
+fn finalize_report(
+    rendered: &str,
+    format: &OutputFormat,
+    file_option: Option<String>,
+    tx: &str,
+    svg_path: Option<String>,
+) -> Result<String> {
+    eprintln!();
+    if *format == OutputFormat::Summary {
+        println!("{}", rendered);
+    }
+    eprintln!();
+
+    let report_path = resolve_artifact_path(file_option, "capture", tx, "json");
+    std::fs::write(&report_path, rendered)
+        .with_context(|| format!("Failed to write report to '{report_path}'"))?;
+
+    eprintln!(
+        "{} Report saved to {}",
+        "✔".green().bold(),
+        report_path.cyan().bold()
+    );
+
+    if let Some(svg) = svg_path {
+        eprintln!(
+            "{} SVG profile saved to {}",
+            "✔".green().bold(),
+            svg.cyan().bold()
+        );
+    }
+
+    Ok(report_path)
+}
+
+/// Generic handler for Starknet traces
+async fn handle_starknet_capture(
+    rpc_url: &str,
+    tx: &str,
+    format: OutputFormat,
+    file: Option<String>,
+    generate_profile: bool,
+) -> Result<String> {
+    let pb = spinner("Detecting Starknet network and fetching execution trace…");
+    let client = atupa_starknet::StarknetClient::new(rpc_url.to_string());
+    let steps = client.profile_transaction(tx).await.context(
+        "Failed to fetch Starknet trace — ensure the RPC endpoint is valid and accessible.",
+    )?;
+
+    pb.finish_with_message(format!(
+        "{} Captured Starknet trace ({} steps)",
+        "✔".green().bold(),
+        steps.len().to_string().cyan().bold()
+    ));
+
+    let svg_path = if generate_profile {
+        Some(generate_and_save_svg(&steps, tx, &file)?)
+    } else {
+        None
+    };
+
+    let pb_render = spinner("Rendering report…");
+    let rendered = match format {
+        OutputFormat::Summary => format!(
+            "Starknet trace captured successfully with {} steps.",
+            steps.len()
+        ),
+        OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
+        OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
+    };
+    pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
+
+    finalize_report(&rendered, &format, file, tx, svg_path)
+}
+
+/// Generic handler for Solana traces
+async fn handle_solana_capture(
+    rpc_url: &str,
+    tx: &str,
+    format: OutputFormat,
+    file: Option<String>,
+    generate_profile: bool,
+) -> Result<String> {
+    let pb = spinner("Detecting Solana network and fetching execution trace…");
+    let client = atupa_solana::SolanaClient::new(rpc_url.to_string());
+    let logs = client.get_transaction_logs(tx).await.context(
+        "Failed to fetch Solana logs — ensure the RPC endpoint is valid and accessible.",
+    )?;
+
+    let steps = atupa_solana::SolanaLogStitcher::parse_logs(&logs);
+
+    pb.finish_with_message(format!(
+        "{} Reconstructed Solana trace ({} steps)",
+        "✔".green().bold(),
+        steps.len().to_string().cyan().bold()
+    ));
+
+    let svg_path = if generate_profile {
+        Some(generate_and_save_svg(&steps, tx, &file)?)
+    } else {
+        None
+    };
+
+    let pb_render = spinner("Rendering report…");
+    let rendered = match format {
+        OutputFormat::Summary => format!(
+            "Solana trace reconstructed successfully with {} steps.",
+            steps.len()
+        ),
+        OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
+        OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
+    };
+    pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
+
+    finalize_report(&rendered, &format, file, tx, svg_path)
+}
+
+/// Generic handler for Soroban (Stellar) traces
+async fn handle_stellar_capture(
+    rpc_url: &str,
+    tx: &str,
+    format: OutputFormat,
+    file: Option<String>,
+    generate_profile: bool,
+) -> Result<String> {
+    let pb = spinner("Detecting Stellar network and fetching diagnostic events…");
+    let client = atupa_stellar::StellarClient::new(rpc_url.to_string());
+    let steps = client
+        .get_transaction_trace(tx)
+        .await
+        .context("Failed to fetch Stellar diagnostic events — ensure the RPC endpoint supports Soroban traces.")?;
+
+    pb.finish_with_message(format!(
+        "{} Reconstructed Soroban trace ({} steps)",
+        "✔".green().bold(),
+        steps.len().to_string().cyan().bold()
+    ));
+
+    let svg_path = if generate_profile {
+        Some(generate_and_save_svg(&steps, tx, &file)?)
+    } else {
+        None
+    };
+
+    let pb_render = spinner("Rendering report…");
+    let rendered = match format {
+        OutputFormat::Summary => format!(
+            "Stellar trace reconstructed successfully with {} host function calls.",
+            steps.len()
+        ),
+        OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
+        OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
+    };
+    pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
+
+    finalize_report(&rendered, &format, file, tx, svg_path)
+}
+
+/// Orchestrates the multi-VM capture for Arbitrum Nitro / EVM
+async fn handle_nitro_capture(
+    config: &AtupaConfig,
+    tx: &str,
+    format: OutputFormat,
+    file: Option<String>,
+    generate_profile: bool,
+) -> Result<String> {
+    let pb = spinner("Detecting network and fetching execution trace…");
+    let client = NitroClient::new(config.rpc_url.clone());
+
+    let mut report = client
+        .trace_transaction(tx)
+        .await
+        .context("Failed to fetch trace — ensure the RPC endpoint is valid and accessible.")?;
+
+    let network_name = get_network_name(report.chain_id);
+    pb.finish_with_message(format!(
+        "{} Captured trace from {} ({} EVM steps{} )",
+        "✔".green().bold(),
+        network_name.cyan().bold(),
+        evm_count(&report).to_string().green(),
+        if report.total_stylus_ink > 0 {
+            format!(
+                " + {} Stylus HostIOs",
+                report.stylus_steps().len().to_string().yellow()
+            )
+        } else {
+            "".into()
+        }
+    ));
+
+    // Phase 1b: fetch receipt for on-chain gasUsed (non-fatal)
+    let eth_client = EthClient::new(config.rpc_url.clone());
+    report.on_chain_gas_used = eth_client.get_gas_used(tx).await;
+
+    // Phase 1.5: resolve contract names
+    if let Some(key) = config.etherscan_key.clone() {
+        resolve_names_via_etherscan(&mut report, &key).await?;
+    }
+
+    // Phase 2: optional Flamegraph SVG
+    let svg_path = if generate_profile {
+        let trace_steps: Vec<atupa_core::TraceStep> =
+            report.steps.iter().map(|s| s.to_trace_step()).collect();
+        Some(generate_and_save_svg(&trace_steps, tx, &file)?)
+    } else {
+        None
+    };
+
+    let rendered = render_nitro_report(&report, &format)?;
+    finalize_report(&rendered, &format, file, tx, svg_path)
+}
+
+async fn resolve_names_via_etherscan(
+    report: &mut StitchedReport,
+    etherscan_key: &str,
+) -> Result<()> {
+    let pb_names = spinner("Resolving contract names via Etherscan…");
+    let resolver = atupa_rpc::etherscan::EtherscanResolver::new(
+        Some(etherscan_key.to_string()),
+        report.chain_id,
+    );
+
+    let mut addresses = std::collections::HashSet::new();
+    for step in &report.steps {
+        if let Some(evm) = &step.evm
+            && (evm.op.contains("CALL") || evm.op.contains("CREATE"))
+            && let Some(stack) = &evm.stack
+            && stack.len() >= 2
+        {
+            let hex_addr = &stack[stack.len() - 2];
+            let clean_hex = hex_addr.trim_start_matches("0x");
+            let padded = format!("{:0>40}", clean_hex);
+            let extracted = &padded[padded.len() - 40..];
+            addresses.insert(format!("0x{}", extracted));
+        }
+    }
+
+    for addr in addresses {
+        if let Some(name) = resolver.resolve_contract_name(&addr).await {
+            report.resolved_names.insert(addr, name);
+        }
+    }
+    pb_names.finish_with_message(format!(
+        "{} Resolved {} contract name(s) via Etherscan.",
+        "✔".green().bold(),
+        report.resolved_names.len().to_string().cyan().bold()
+    ));
+    Ok(())
+}
+
+fn render_nitro_report(report: &StitchedReport, format: &OutputFormat) -> Result<String> {
+    let pb_render = spinner("Rendering report…");
+    let summary_text = render_capture_summary(report);
+
+    let rendered = match format {
+        OutputFormat::Summary => summary_text,
+        OutputFormat::Json => serde_json::to_string_pretty(report)?,
+        OutputFormat::Metric => format!("{:.4}", report.total_unified_cost),
+    };
+    pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
+    Ok(rendered)
+}
+
+/// Helper data for Nitro/EVM diff calculation
+struct NitroDiffData<'a> {
+    base_tx: &'a str,
+    target_tx: &'a str,
+    base_report: StitchedReport,
+    target_report: StitchedReport,
+    base_total_gas: u64,
+    target_total_gas: u64,
+    total_gas_delta: f64,
+    total_gas_pct: f64,
+    base_unified_cost: f64,
+    target_unified_cost: f64,
+    unified_delta: f64,
+    unified_pct: f64,
+    base_intrinsic: u64,
+    target_intrinsic: u64,
+    base_evm: usize,
+    tgt_evm: usize,
+    evm_delta: f64,
+    evm_pct: f64,
+    base_stylus: usize,
+    tgt_stylus: usize,
+    stylus_delta: f64,
+    stylus_pct: f64,
+}
+
+/// Handler for Solana execution diffing
+async fn handle_solana_diff(
+    rpc_url: &str,
+    base: &str,
+    target: &str,
+    threshold: Option<f64>,
+    svg: bool,
+) -> Result<()> {
+    let solana_client = atupa_solana::SolanaClient::new(rpc_url.to_string());
+    let pb = spinner("Fetching both Solana logs concurrently…");
+    let (base_logs, target_logs) = tokio::try_join!(
+        solana_client.get_transaction_logs(base),
+        solana_client.get_transaction_logs(target),
+    )
+    .context("Failed to fetch Solana logs")?;
+    pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
+    eprintln!();
+
+    let base_steps = atupa_solana::SolanaLogStitcher::parse_logs(&base_logs);
+    let target_steps = atupa_solana::SolanaLogStitcher::parse_logs(&target_logs);
+
+    process_generic_diff(GenericDiffArgs {
+        network_name: "Solana",
+        unit_name: "Compute Units",
+        base_tx: base,
+        target_tx: target,
+        base_steps,
+        target_steps,
+        svg,
+        threshold,
+    })
+}
+
+/// Handler for Starknet execution diffing
+async fn handle_starknet_diff(
+    rpc_url: &str,
+    base: &str,
+    target: &str,
+    threshold: Option<f64>,
+    svg: bool,
+) -> Result<()> {
+    let starknet_client = atupa_starknet::StarknetClient::new(rpc_url.to_string());
+    let pb = spinner("Fetching both Starknet traces concurrently…");
+    let (base_steps, target_steps) = tokio::try_join!(
+        starknet_client.profile_transaction(base),
+        starknet_client.profile_transaction(target),
+    )
+    .context("Failed to fetch Starknet traces")?;
+    pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
+    eprintln!();
+
+    process_generic_diff(GenericDiffArgs {
+        network_name: "Starknet Cairo",
+        unit_name: "Gas-Equivalent Steps",
+        base_tx: base,
+        target_tx: target,
+        base_steps,
+        target_steps,
+        svg,
+        threshold,
+    })
+}
+
+/// Handler for Stellar/Soroban execution diffing
+async fn handle_stellar_diff(
+    rpc_url: &str,
+    base: &str,
+    target: &str,
+    threshold: Option<f64>,
+    svg: bool,
+) -> Result<()> {
+    let stellar_client = atupa_stellar::StellarClient::new(rpc_url.to_string());
+    let pb = spinner("Fetching both Stellar diagnostic events concurrently…");
+    let (base_steps, target_steps) = tokio::try_join!(
+        stellar_client.get_transaction_trace(base),
+        stellar_client.get_transaction_trace(target),
+    )
+    .context("Failed to fetch Stellar traces")?;
+    pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
+    eprintln!();
+
+    process_generic_diff(GenericDiffArgs {
+        network_name: "Stellar Soroban",
+        unit_name: "HostFn Weight",
+        base_tx: base,
+        target_tx: target,
+        base_steps,
+        target_steps,
+        svg,
+        threshold,
+    })
+}
+
+/// Orchestrates the Nitro/EVM diffing process
+#[allow(clippy::too_many_arguments)]
+async fn handle_nitro_diff(
+    config: &AtupaConfig,
+    base: &str,
+    target: &str,
+    threshold: Option<f64>,
+    diff_config: Option<String>,
+    markdown: bool,
+    svg: bool,
+    output_format: OutputFormat,
+    protocol: Option<Protocol>,
+) -> Result<()> {
+    let client = NitroClient::new(config.rpc_url.clone());
+    let eth_client = EthClient::new(config.rpc_url.clone());
+
+    let pb = spinner("Fetching both traces and receipts concurrently…");
+    let (base_report, target_report) = tokio::try_join!(
+        client.trace_transaction(base),
+        client.trace_transaction(target),
+    )
+    .context("Failed to fetch one or both traces")?;
+
+    let (base_receipt_gas, target_receipt_gas) = tokio::join!(
+        eth_client.get_gas_used(base),
+        eth_client.get_gas_used(target),
+    );
+    pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
+    eprintln!();
+
+    let data = calculate_nitro_diff_data(
+        base,
+        target,
+        base_report,
+        target_report,
+        base_receipt_gas,
+        target_receipt_gas,
+    );
+
+    print_nitro_diff_summary(&data);
+
+    let (proto_name, proto_rows) = if let Some(ref proto) = protocol {
+        handle_protocol_deep_diff(proto, base, target, &data.base_report, &data.target_report)
+            .await?
+    } else {
+        (String::new(), Vec::new())
+    };
+
+    if markdown {
+        generate_diff_markdown(&data, &proto_name, &proto_rows)?;
+    }
+
+    if svg {
+        generate_diff_svg(&data)?;
+    }
+
+    let failures = evaluate_thresholds(&data, threshold, diff_config);
+
+    if output_format == OutputFormat::Json {
+        let diff_report = serde_json::json!({
+            "type": "diff",
+            "protocol": protocol.map(|p| format!("{:?}", p)),
+            "base": { "tx_hash": base, "report": data.base_report },
+            "target": { "tx_hash": target, "report": data.target_report },
+            "metrics": {
+                "base_total_gas": data.base_total_gas,
+                "target_total_gas": data.target_total_gas,
+                "gas_delta": data.total_gas_delta,
+                "gas_pct": data.total_gas_pct,
+                "base_unified_cost": data.base_unified_cost,
+                "target_unified_cost": data.target_unified_cost,
+                "unified_delta": data.unified_delta,
+                "unified_pct": data.unified_pct,
+            }
+        });
+        println!("{}", serde_json::to_string_pretty(&diff_report)?);
+    } else {
+        if !failures.is_empty() {
+            println!("\n  {}", "❌ [FAILED] Regression detected:".red().bold());
+            for f in failures.iter() {
+                println!("     - {}", f.red());
+            }
+        } else if threshold.is_some() || AtupaConfigToml::auto_load().is_some() {
+            println!(
+                "\n  {} Execution cost within acceptable limits.",
+                "✅ [PASSED]".green().bold()
+            );
+        }
+    }
+
+    if !failures.is_empty() {
+        return Err(anyhow::anyhow!("Gas regression thresholds exceeded"));
+    }
+
+    Ok(())
+}
+
+fn calculate_nitro_diff_data<'a>(
+    base_tx: &'a str,
+    target_tx: &'a str,
+    base_report: StitchedReport,
+    target_report: StitchedReport,
+    base_receipt_gas: Option<u64>,
+    target_receipt_gas: Option<u64>,
+) -> NitroDiffData<'a> {
+    let base_unified_cost = base_report.total_unified_cost;
+    let target_unified_cost = target_report.total_unified_cost;
+    let unified_delta = target_unified_cost - base_unified_cost;
+    let unified_pct = if base_unified_cost > 0.0 {
+        unified_delta / base_unified_cost * 100.0
+    } else {
+        0.0
+    };
+
+    let base_total_gas = base_receipt_gas.unwrap_or(base_unified_cost as u64);
+    let target_total_gas = target_receipt_gas.unwrap_or(target_unified_cost as u64);
+    let total_gas_delta = target_total_gas as f64 - base_total_gas as f64;
+    let total_gas_pct = if base_total_gas > 0 {
+        total_gas_delta / base_total_gas as f64 * 100.0
+    } else {
+        0.0
+    };
+
+    let base_intrinsic = base_total_gas.saturating_sub(base_unified_cost as u64);
+    let target_intrinsic = target_total_gas.saturating_sub(target_unified_cost as u64);
+
+    let base_evm = evm_count(&base_report);
+    let tgt_evm = evm_count(&target_report);
+    let evm_delta = tgt_evm as f64 - base_evm as f64;
+    let evm_pct = if base_evm > 0 {
+        evm_delta / base_evm as f64 * 100.0
+    } else {
+        0.0
+    };
+
+    let base_stylus = base_report.stylus_steps().len();
+    let tgt_stylus = target_report.stylus_steps().len();
+    let stylus_delta = tgt_stylus as f64 - base_stylus as f64;
+    let stylus_pct = if base_stylus > 0 {
+        stylus_delta / base_stylus as f64 * 100.0
+    } else {
+        0.0
+    };
+
+    NitroDiffData {
+        base_tx,
+        target_tx,
+        base_report,
+        target_report,
+        base_total_gas,
+        target_total_gas,
+        total_gas_delta,
+        total_gas_pct,
+        base_unified_cost,
+        target_unified_cost,
+        unified_delta,
+        unified_pct,
+        base_intrinsic,
+        target_intrinsic,
+        base_evm,
+        tgt_evm,
+        evm_delta,
+        evm_pct,
+        base_stylus,
+        tgt_stylus,
+        stylus_delta,
+        stylus_pct,
+    }
+}
+
+fn print_nitro_diff_summary(data: &NitroDiffData) {
+    let div = "─".repeat(70).dimmed().to_string();
+    println!("{}", "  EXECUTION DIFF".bold().underline());
+    println!("{div}");
+    println!(
+        "  {:<25} {:<15} {:<15} {}",
+        "Metric".bold(),
+        "Base".bold(),
+        "Target".bold(),
+        "Delta".bold()
+    );
+    println!("{div}");
+
+    let colorize_delta = |delta: f64, pct: f64| -> String {
+        let sign = if delta >= 0.0 { "+" } else { "" };
+        if delta > 0.0 {
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
+                .red()
+                .to_string()
+        } else if delta < 0.0 {
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
+                .green()
+                .to_string()
+        } else {
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
+                .dimmed()
+                .to_string()
+        }
+    };
+
+    println!(
+        "  {:<25} {:<15} {:<15} {}",
+        "Total On-Chain Gas:",
+        data.base_total_gas.to_string().green(),
+        data.target_total_gas.to_string().yellow(),
+        colorize_delta(data.total_gas_delta, data.total_gas_pct)
+    );
+
+    println!(
+        "  {:<25} {:<15} {:<15} {}",
+        "↳ Execution Gas (EVM):",
+        data.base_unified_cost.to_string().cyan(),
+        data.target_unified_cost.to_string().cyan(),
+        colorize_delta(data.unified_delta, data.unified_pct)
+    );
+
+    let intrinsic_delta = data.target_intrinsic as f64 - data.base_intrinsic as f64;
+    let intrinsic_pct = if data.base_intrinsic > 0 {
+        intrinsic_delta / data.base_intrinsic as f64 * 100.0
+    } else {
+        0.0
+    };
+    println!(
+        "  {:<25} {:<15} {:<15} {}",
+        "↳ Intrinsic Gas:",
+        data.base_intrinsic.to_string().dimmed(),
+        data.target_intrinsic.to_string().dimmed(),
+        colorize_delta(intrinsic_delta, intrinsic_pct)
+    );
+
+    println!("{div}");
+
+    println!(
+        "  {:<25} {:<15} {:<15} {}",
+        "EVM Steps:",
+        data.base_evm.to_string().green(),
+        data.tgt_evm.to_string().yellow(),
+        colorize_delta(data.evm_delta, data.evm_pct)
+    );
+
+    println!(
+        "  {:<25} {:<15} {:<15} {}",
+        "Stylus Cross-VM Calls:",
+        data.base_stylus.to_string().green(),
+        data.tgt_stylus.to_string().yellow(),
+        colorize_delta(data.stylus_delta, data.stylus_pct)
+    );
+    println!("{div}");
+}
+
+async fn handle_protocol_deep_diff(
+    proto: &Protocol,
+    base: &str,
+    target: &str,
+    base_report: &StitchedReport,
+    target_report: &StitchedReport,
+) -> Result<(String, Vec<atupa_core::DiffRow>)> {
+    let base_steps: Vec<TraceStep> = base_report
+        .steps
+        .iter()
+        .map(|s| s.to_trace_step())
+        .collect();
+    let target_steps: Vec<TraceStep> = target_report
+        .steps
+        .iter()
+        .map(|s| s.to_trace_step())
+        .collect();
+
+    let report = match proto {
+        Protocol::Aave => {
+            AaveDeepTracer::new().diff_reports(base, &base_steps, target, &target_steps)
+        }
+        Protocol::Lido => {
+            LidoDeepTracer::new().diff_reports(base, &base_steps, target, &target_steps)
+        }
+    };
+
+    match report {
+        Ok(r) => {
+            let proto_div = "─".repeat(70).dimmed().to_string();
+            println!(
+                "\n  {} DEEP DIFF",
+                r.protocol.to_uppercase().bold().underline()
+            );
+            println!("{proto_div}");
+            println!(
+                "  {:<28} {:<15} {:<15} {}",
+                "Metric".bold(),
+                "Base".bold(),
+                "Target".bold(),
+                "Delta".bold()
+            );
+            println!("{proto_div}");
+
+            for row in &r.rows {
+                let sign = if row.delta >= 0.0 { "+" } else { "" };
+                let delta_str = format!("{sign}{:.0} ({sign}{:.1}%)", row.delta, row.pct);
+                let delta_colored = if row.delta == 0.0 {
+                    delta_str.dimmed().to_string()
+                } else if (row.delta > 0.0) == row.higher_is_worse {
+                    delta_str.red().to_string()
+                } else {
+                    delta_str.green().to_string()
+                };
+                println!(
+                    "  {:<28} {:<15} {:<15} {}",
+                    row.metric,
+                    row.base.to_string().dimmed(),
+                    row.target.to_string().dimmed(),
+                    delta_colored
+                );
+            }
+            println!("{proto_div}");
+            Ok((r.protocol, r.rows))
+        }
+        Err(e) => {
+            eprintln!("  ⚠ Protocol deep diff skipped: {e}");
+            Ok((String::new(), Vec::new()))
+        }
+    }
+}
+
+fn generate_diff_markdown(
+    data: &NitroDiffData,
+    proto_name: &str,
+    proto_rows: &[atupa_core::DiffRow],
+) -> Result<()> {
+    let mut md = String::from("## 🏮 Atupa Gas Regression Report\n\n");
+    md.push_str("| Metric | Base | Target | Delta |\n");
+    md.push_str("|--------|------|--------|-------|\n");
+
+    md.push_str(&generate_summary_table_rows(data));
+    md.push_str("\n*Profiled via Atupa Unified Tracer*\n");
+
+    if !proto_rows.is_empty() {
+        md.push_str(&format!("\n### 🔬 {} Protocol Deep Diff\n\n", proto_name));
+        md.push_str("| Metric | Base | Target | Delta |\n");
+        md.push_str("|--------|------|--------|-------|\n");
+        md.push_str(&generate_protocol_deep_diff_rows(proto_rows));
+    }
+
+    let out_path = format!(
+        "artifacts/diff/{}_vs_{}.md",
+        &data.base_tx[..10],
+        &data.target_tx[..10]
+    );
+    std::fs::create_dir_all("artifacts/diff").ok();
+    std::fs::write(&out_path, md).context("Failed to write markdown diff")?;
+    println!("  📝 Markdown report written to {}", out_path.cyan());
+    Ok(())
+}
+
+fn generate_summary_table_rows(data: &NitroDiffData) -> String {
+    let format_plain_delta = |delta: f64, pct: f64| -> String {
+        let sign = if delta >= 0.0 { "+" } else { "" };
+        format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
+    };
+
+    let mut rows = String::new();
+    let entries = [
+        (
+            "Total Gas",
+            data.base_total_gas as f64,
+            data.target_total_gas as f64,
+            data.total_gas_delta,
+            data.total_gas_pct,
+        ),
+        (
+            "Execution Gas",
+            data.base_unified_cost,
+            data.target_unified_cost,
+            data.unified_delta,
+            data.unified_pct,
+        ),
+        (
+            "EVM Steps",
+            data.base_evm as f64,
+            data.tgt_evm as f64,
+            data.evm_delta,
+            data.evm_pct,
+        ),
+        (
+            "Stylus Calls",
+            data.base_stylus as f64,
+            data.tgt_stylus as f64,
+            data.stylus_delta,
+            data.stylus_pct,
+        ),
+    ];
+
+    for (metric, base, target, delta, pct) in entries {
+        rows.push_str(&format!(
+            "| **{}** | {} | {} | {} |\n",
+            metric,
+            base,
+            target,
+            format_plain_delta(delta, pct)
+        ));
+    }
+    rows
+}
+
+fn generate_protocol_deep_diff_rows(proto_rows: &[atupa_core::DiffRow]) -> String {
+    let mut rows = String::new();
+    for row in proto_rows {
+        let sign = if row.delta >= 0.0 { "+" } else { "" };
+        let emoji = if row.delta == 0.0 {
+            ""
+        } else if (row.delta > 0.0) == row.higher_is_worse {
+            "🔴 "
+        } else {
+            "🟢 "
+        };
+        rows.push_str(&format!(
+            "| **{}** | {} | {} | {}{}{:.0} ({}{:.1}%) |\n",
+            row.metric, row.base, row.target, emoji, sign, row.delta, sign, row.pct
+        ));
+    }
+    rows
+}
+
+fn generate_diff_svg(data: &NitroDiffData) -> Result<()> {
+    let base_steps: Vec<atupa_core::TraceStep> = data
+        .base_report
+        .steps
+        .iter()
+        .map(|s| s.to_trace_step())
+        .collect();
+    let base_stacks = Aggregator::build_collapsed_stacks(&TraceParser::normalize_raw(base_steps));
+
+    let target_steps: Vec<atupa_core::TraceStep> = data
+        .target_report
+        .steps
+        .iter()
+        .map(|s| s.to_trace_step())
+        .collect();
+    let target_stacks =
+        Aggregator::build_collapsed_stacks(&TraceParser::normalize_raw(target_steps));
+
+    let svg_content = atupa_output::generate_diff_flamegraph(&base_stacks, &target_stacks)?;
+    let out_path = format!(
+        "artifacts/diff/{}_vs_{}.svg",
+        &data.base_tx[..10],
+        &data.target_tx[..10]
+    );
+    std::fs::create_dir_all("artifacts/diff").ok();
+    std::fs::write(&out_path, svg_content).context("Failed to write diff flamegraph SVG")?;
+    println!("  🔥 Visual diff flamegraph written to {}", out_path.cyan());
+    Ok(())
+}
+
+fn evaluate_thresholds(
+    data: &NitroDiffData,
+    threshold: Option<f64>,
+    diff_config: Option<String>,
+) -> Vec<String> {
+    let mut failures = Vec::new();
+    let config_toml = if let Some(path) = diff_config {
+        AtupaConfigToml::load(std::path::Path::new(&path)).ok()
+    } else {
+        AtupaConfigToml::auto_load()
+    };
+
+    if let Some(t) = threshold {
+        if data.total_gas_pct > t {
+            failures.push(format!(
+                "Total Gas increased by {:.1}% (limit: {:.1}%)",
+                data.total_gas_pct, t
+            ));
+        }
+    } else if let Some(ref cfg) = config_toml
+        && let Some(diff_cfg) = &cfg.diff
+    {
+        if let Some(max_total) = diff_cfg.max_total_gas_increase_percent
+            && data.total_gas_pct > max_total
+        {
+            failures.push(format!(
+                "Total Gas increased by {:.1}% (limit: {:.1}%)",
+                data.total_gas_pct, max_total
+            ));
+        }
+        if let Some(max_exec) = diff_cfg.max_execution_gas_increase_percent
+            && data.unified_pct > max_exec
+        {
+            failures.push(format!(
+                "Execution Gas increased by {:.1}% (limit: {:.1}%)",
+                data.unified_pct, max_exec
+            ));
+        }
+        if let Some(max_evm) = diff_cfg.max_evm_steps_increase
+            && data.evm_delta > max_evm as f64
+        {
+            failures.push(format!(
+                "EVM Steps increased by {:.0} (limit: {})",
+                data.evm_delta, max_evm
+            ));
+        }
+        if let Some(max_stylus) = diff_cfg.max_stylus_calls_increase
+            && data.stylus_delta > max_stylus as f64
+        {
+            failures.push(format!(
+                "Stylus Calls increased by {:.0} (limit: {})",
+                data.stylus_delta, max_stylus
+            ));
+        }
+    }
+    failures
 }
 
 // ─── Shared Utilities ─────────────────────────────────────────────────────────
