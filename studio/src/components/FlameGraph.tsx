@@ -56,7 +56,10 @@ interface TooltipState {
   node: FlameNode;
 }
 
-function Tooltip({ tip }: { tip: TooltipState }) {
+function Tooltip({ tip, rootValue }: { tip: TooltipState, rootValue: number }) {
+  const totalPct = ((tip.node.value / rootValue) * 100).toFixed(2);
+  const selfPct  = ((tip.node.selfCost / rootValue) * 100).toFixed(2);
+
   const vmLabel = {
     Evm: 'EVM',
     Stylus: 'WASM/Stylus',
@@ -102,7 +105,7 @@ function Tooltip({ tip }: { tip: TooltipState }) {
           VM: <span style={{ color: vmColor }}>{vmLabel}</span>
         </div>
         <div style={{ color: '#94a3b8' }}>
-          Total: <span style={{ color: '#e2e8f0' }}>{tip.node.value.toLocaleString('en-US', { maximumFractionDigits: 2 })} gas</span>
+          Total: <span style={{ color: '#e2e8f0' }}>{tip.node.value.toLocaleString('en-US', { maximumFractionDigits: 2 })} gas ({totalPct}%)</span>
         </div>
         <div style={{ color: '#94a3b8' }}>
           Self:  <span style={{ color: '#e2e8f0' }}>{tip.node.selfCost.toLocaleString('en-US', { maximumFractionDigits: 2 })} gas ({selfPct}%)</span>
@@ -449,7 +452,7 @@ export function FlameGraph({ root, search = '' }: Props) {
             />
           ))}
 
-          {tooltip && <Tooltip tip={tooltip} />}
+          {tooltip && <Tooltip tip={tooltip} rootValue={root.value} />}
         </svg>
       </div>
 
