@@ -69,7 +69,10 @@ impl StarknetClient {
         }
     }
 
-    pub async fn get_transaction_trace(&self, tx_hash: &str) -> Result<StarknetTransactionTrace, StarknetError> {
+    pub async fn get_transaction_trace(
+        &self,
+        tx_hash: &str,
+    ) -> Result<StarknetTransactionTrace, StarknetError> {
         let payload = json!({
             "jsonrpc": "2.0",
             "method": "starknet_traceTransaction",
@@ -88,7 +91,10 @@ impl StarknetClient {
 
         if let Some(error) = response.get("error") {
             return Err(StarknetError::Rpc(RpcError::Node(
-                error["message"].as_str().unwrap_or("Unknown RPC error").to_string(),
+                error["message"]
+                    .as_str()
+                    .unwrap_or("Unknown RPC error")
+                    .to_string(),
             )));
         }
 
@@ -106,7 +112,7 @@ impl StarknetClient {
         // 1. Map execution resources to virtual "opcodes" for Atupa aggregation
         // In Starknet, we don't have individual opcodes in the RPC trace (usually),
         // but we have aggregated resources per call frame.
-        
+
         // Root step for this call frame
         let selector_label = if invocation.entry_point_selector.len() > 12 {
             &invocation.entry_point_selector[0..12]
@@ -115,8 +121,7 @@ impl StarknetClient {
         };
 
         // For target resolution, we can add the contract_address to the stack
-        let mut stack_info = Vec::new();
-        stack_info.push(invocation.contract_address.clone());
+        let stack_info = vec![invocation.contract_address.clone()];
 
         steps.push(TraceStep {
             pc: 0,
@@ -149,10 +154,26 @@ impl StarknetClient {
             }
         };
 
-        add_builtin("PEDERSEN", invocation.execution_resources.pedersen_builtin, 32);
-        add_builtin("RANGE_CHECK", invocation.execution_resources.range_check_builtin, 16);
-        add_builtin("BITWISE", invocation.execution_resources.bitwise_builtin, 64);
-        add_builtin("POSEIDON", invocation.execution_resources.poseidon_builtin, 32);
+        add_builtin(
+            "PEDERSEN",
+            invocation.execution_resources.pedersen_builtin,
+            32,
+        );
+        add_builtin(
+            "RANGE_CHECK",
+            invocation.execution_resources.range_check_builtin,
+            16,
+        );
+        add_builtin(
+            "BITWISE",
+            invocation.execution_resources.bitwise_builtin,
+            64,
+        );
+        add_builtin(
+            "POSEIDON",
+            invocation.execution_resources.poseidon_builtin,
+            32,
+        );
         add_builtin("EC_OP", invocation.execution_resources.ec_op_builtin, 1024);
         add_builtin("ECDSA", invocation.execution_resources.ecdsa_builtin, 2048);
 
@@ -164,7 +185,10 @@ impl StarknetClient {
         steps
     }
 
-    pub async fn profile_transaction(&self, tx_hash: &str) -> Result<Vec<TraceStep>, StarknetError> {
+    pub async fn profile_transaction(
+        &self,
+        tx_hash: &str,
+    ) -> Result<Vec<TraceStep>, StarknetError> {
         let trace = self.get_transaction_trace(tx_hash).await?;
         let mut all_steps = Vec::new();
 
@@ -200,18 +224,16 @@ mod tests {
                 range_check_builtin: 2,
                 ..Default::default()
             },
-            calls: vec![
-                FunctionInvocation {
-                    contract_address: "0x2".to_string(),
-                    entry_point_selector: "0xdeadbeef".to_string(),
-                    calldata: vec![],
-                    execution_resources: ExecutionResources {
-                        steps: 50,
-                        ..Default::default()
-                    },
-                    calls: vec![],
-                }
-            ],
+            calls: vec![FunctionInvocation {
+                contract_address: "0x2".to_string(),
+                entry_point_selector: "0xdeadbeef".to_string(),
+                calldata: vec![],
+                execution_resources: ExecutionResources {
+                    steps: 50,
+                    ..Default::default()
+                },
+                calls: vec![],
+            }],
         };
 
         let client = StarknetClient::new("http://localhost".to_string());

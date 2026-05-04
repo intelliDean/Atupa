@@ -52,7 +52,7 @@ impl StellarTraceParser {
             // In Soroban, diagnostic events for host calls often look like:
             // topics: ["fn_call", "invoke_contract"]
             // or ["fn_return", "invoke_contract"]
-            
+
             let event_action = event.topics.first().map(|s| s.as_str()).unwrap_or("");
             let fn_name = event.topics.get(1).map(|s| s.as_str()).unwrap_or("unknown");
 
@@ -108,7 +108,10 @@ impl StellarClient {
         }
     }
 
-    pub async fn get_transaction_trace(&self, tx_hash: &str) -> Result<Vec<TraceStep>, StellarError> {
+    pub async fn get_transaction_trace(
+        &self,
+        tx_hash: &str,
+    ) -> Result<Vec<TraceStep>, StellarError> {
         let payload = json!({
             "jsonrpc": "2.0",
             "method": "getTransaction",
@@ -127,7 +130,10 @@ impl StellarClient {
 
         if let Some(error) = response.get("error") {
             return Err(StellarError::Rpc(RpcError::Node(
-                error["message"].as_str().unwrap_or("Unknown RPC error").to_string(),
+                error["message"]
+                    .as_str()
+                    .unwrap_or("Unknown RPC error")
+                    .to_string(),
             )));
         }
 
@@ -165,7 +171,7 @@ mod tests {
 
         let steps = StellarTraceParser::parse_diagnostic_events(&events);
         assert_eq!(steps.len(), 2);
-        
+
         assert_eq!(steps[0].op, "invoke_contract");
         assert_eq!(steps[0].depth, 1);
         assert_eq!(steps[0].gas_cost, 1500);

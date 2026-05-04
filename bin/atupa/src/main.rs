@@ -355,10 +355,9 @@ async fn cmd_capture(
     if config.rpc_url.contains("starknet") {
         let pb = spinner("Detecting Starknet network and fetching execution trace…");
         let client = atupa_starknet::StarknetClient::new(config.rpc_url.clone());
-        let steps = client
-            .profile_transaction(&tx)
-            .await
-            .context("Failed to fetch Starknet trace — ensure the RPC endpoint is valid and accessible.")?;
+        let steps = client.profile_transaction(&tx).await.context(
+            "Failed to fetch Starknet trace — ensure the RPC endpoint is valid and accessible.",
+        )?;
 
         pb.finish_with_message(format!(
             "{} Captured Starknet trace ({} steps)",
@@ -395,7 +394,10 @@ async fn cmd_capture(
 
         let pb2 = spinner("Rendering report…");
         let rendered = match format {
-            OutputFormat::Summary => format!("Starknet trace captured successfully with {} steps.", steps.len()),
+            OutputFormat::Summary => format!(
+                "Starknet trace captured successfully with {} steps.",
+                steps.len()
+            ),
             OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
             OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
         };
@@ -431,10 +433,9 @@ async fn cmd_capture(
     if config.rpc_url.contains("solana") {
         let pb = spinner("Detecting Solana network and fetching execution trace…");
         let client = atupa_solana::SolanaClient::new(config.rpc_url.clone());
-        let logs = client
-            .get_transaction_logs(&tx)
-            .await
-            .context("Failed to fetch Solana logs — ensure the RPC endpoint is valid and accessible.")?;
+        let logs = client.get_transaction_logs(&tx).await.context(
+            "Failed to fetch Solana logs — ensure the RPC endpoint is valid and accessible.",
+        )?;
 
         let steps = atupa_solana::SolanaLogStitcher::parse_logs(&logs);
 
@@ -473,7 +474,10 @@ async fn cmd_capture(
 
         let pb2 = spinner("Rendering report…");
         let rendered = match format {
-            OutputFormat::Summary => format!("Solana trace reconstructed successfully with {} steps.", steps.len()),
+            OutputFormat::Summary => format!(
+                "Solana trace reconstructed successfully with {} steps.",
+                steps.len()
+            ),
             OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
             OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
         };
@@ -549,7 +553,10 @@ async fn cmd_capture(
 
         let pb2 = spinner("Rendering report…");
         let rendered = match format {
-            OutputFormat::Summary => format!("Stellar trace reconstructed successfully with {} host function calls.", steps.len()),
+            OutputFormat::Summary => format!(
+                "Stellar trace reconstructed successfully with {} host function calls.",
+                steps.len()
+            ),
             OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
             OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
         };
@@ -836,14 +843,24 @@ async fn cmd_diff(
         let (base_logs, target_logs) = tokio::try_join!(
             solana_client.get_transaction_logs(&base),
             solana_client.get_transaction_logs(&target),
-        ).context("Failed to fetch Solana logs")?;
+        )
+        .context("Failed to fetch Solana logs")?;
         pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
         eprintln!();
-        
+
         let base_steps = atupa_solana::SolanaLogStitcher::parse_logs(&base_logs);
         let target_steps = atupa_solana::SolanaLogStitcher::parse_logs(&target_logs);
-        
-        return process_generic_diff("Solana", "Compute Units", &base, &target, base_steps, target_steps, svg, threshold);
+
+        return process_generic_diff(GenericDiffArgs {
+            network_name: "Solana",
+            unit_name: "Compute Units",
+            base_tx: &base,
+            target_tx: &target,
+            base_steps,
+            target_steps,
+            svg,
+            threshold,
+        });
     }
 
     if config.rpc_url.contains("starknet") {
@@ -852,11 +869,21 @@ async fn cmd_diff(
         let (base_steps, target_steps) = tokio::try_join!(
             starknet_client.profile_transaction(&base),
             starknet_client.profile_transaction(&target),
-        ).context("Failed to fetch Starknet traces")?;
+        )
+        .context("Failed to fetch Starknet traces")?;
         pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
         eprintln!();
-        
-        return process_generic_diff("Starknet Cairo", "Gas-Equivalent Steps", &base, &target, base_steps, target_steps, svg, threshold);
+
+        return process_generic_diff(GenericDiffArgs {
+            network_name: "Starknet Cairo",
+            unit_name: "Gas-Equivalent Steps",
+            base_tx: &base,
+            target_tx: &target,
+            base_steps,
+            target_steps,
+            svg,
+            threshold,
+        });
     }
 
     if config.rpc_url.contains("stellar") || config.rpc_url.contains("soroban") {
@@ -865,11 +892,21 @@ async fn cmd_diff(
         let (base_steps, target_steps) = tokio::try_join!(
             stellar_client.get_transaction_trace(&base),
             stellar_client.get_transaction_trace(&target),
-        ).context("Failed to fetch Stellar traces")?;
+        )
+        .context("Failed to fetch Stellar traces")?;
         pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
         eprintln!();
-        
-        return process_generic_diff("Stellar Soroban", "HostFn Weight", &base, &target, base_steps, target_steps, svg, threshold);
+
+        return process_generic_diff(GenericDiffArgs {
+            network_name: "Stellar Soroban",
+            unit_name: "HostFn Weight",
+            base_tx: &base,
+            target_tx: &target,
+            base_steps,
+            target_steps,
+            svg,
+            threshold,
+        });
     }
 
     let pb = spinner("Fetching both traces and receipts concurrently…");
@@ -1266,29 +1303,44 @@ async fn cmd_diff(
     Ok(())
 }
 
-fn process_generic_diff(
-    network_name: &str,
-    unit_name: &str,
-    base_tx: &str,
-    target_tx: &str,
+struct GenericDiffArgs<'a> {
+    network_name: &'a str,
+    unit_name: &'a str,
+    base_tx: &'a str,
+    target_tx: &'a str,
     base_steps: Vec<TraceStep>,
     target_steps: Vec<TraceStep>,
     svg: bool,
     threshold: Option<f64>,
-) -> Result<()> {
-    let base_cost = base_steps.iter().map(|s| s.gas_cost).sum::<u64>();
-    let target_cost = target_steps.iter().map(|s| s.gas_cost).sum::<u64>();
-    let cost_delta = target_cost as f64 - base_cost as f64;
-    let cost_pct = if base_cost > 0 { cost_delta / base_cost as f64 * 100.0 } else { 0.0 };
+}
 
-    let base_count = base_steps.len();
-    let target_count = target_steps.len();
+fn process_generic_diff(args: GenericDiffArgs) -> Result<()> {
+    let base_cost = args.base_steps.iter().map(|s| s.gas_cost).sum::<u64>();
+    let target_cost = args.target_steps.iter().map(|s| s.gas_cost).sum::<u64>();
+    let cost_delta = target_cost as f64 - base_cost as f64;
+    let cost_pct = if base_cost > 0 {
+        cost_delta / base_cost as f64 * 100.0
+    } else {
+        0.0
+    };
+
+    let base_count = args.base_steps.len();
+    let target_count = args.target_steps.len();
     let count_delta = target_count as f64 - base_count as f64;
-    let count_pct = if base_count > 0 { count_delta / base_count as f64 * 100.0 } else { 0.0 };
+    let count_pct = if base_count > 0 {
+        count_delta / base_count as f64 * 100.0
+    } else {
+        0.0
+    };
 
     let div = "─".repeat(70).dimmed().to_string();
 
-    println!("{}", format!("  {network_name} EXECUTION DIFF").bold().underline());
+    println!(
+        "{}",
+        format!("  {} EXECUTION DIFF", args.network_name)
+            .bold()
+            .underline()
+    );
     println!("{div}");
     println!(
         "  {:<25} {:<15} {:<15} {}",
@@ -1302,17 +1354,23 @@ fn process_generic_diff(
     let colorize_delta = |delta: f64, pct: f64| -> String {
         let sign = if delta >= 0.0 { "+" } else { "" };
         if delta > 0.0 {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").red().to_string()
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
+                .red()
+                .to_string()
         } else if delta < 0.0 {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").green().to_string()
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
+                .green()
+                .to_string()
         } else {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").dimmed().to_string()
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
+                .dimmed()
+                .to_string()
         }
     };
 
     println!(
         "  {:<25} {:<15} {:<15} {}",
-        format!("Total {unit_name}:"),
+        format!("Total {}:", args.unit_name),
         base_cost.to_string().cyan(),
         target_cost.to_string().cyan(),
         colorize_delta(cost_delta, cost_pct)
@@ -1328,27 +1386,34 @@ fn process_generic_diff(
     println!("{div}\n");
 
     let mut failures = Vec::new();
-    if let Some(t) = threshold {
-        if cost_pct > t {
-            failures.push(format!(
-                "Total {unit_name} increased by {cost_pct:.1}% (limit: {t:.1}%)"
-            ));
-        }
+    if let Some(t) = args.threshold.filter(|&t| cost_pct > t) {
+        failures.push(format!(
+            "Total {} increased by {cost_pct:.1}% (limit: {t:.1}%)",
+            args.unit_name
+        ));
     }
 
-    if svg {
+    if args.svg {
         let pb_svg = spinner("Generating diff flamegraph…");
-        let base_norm = TraceParser::normalize_raw(base_steps);
-        let target_norm = TraceParser::normalize_raw(target_steps);
+        let base_norm = TraceParser::normalize_raw(args.base_steps);
+        let target_norm = TraceParser::normalize_raw(args.target_steps);
         let base_stacks = Aggregator::build_collapsed_stacks(&base_norm);
         let target_stacks = Aggregator::build_collapsed_stacks(&target_norm);
 
         let svg_out = atupa_output::generate_diff_flamegraph(&base_stacks, &target_stacks)
             .context("SVG diff generation failed")?;
-        let out_path = format!("artifacts/diff/{}_vs_{}.svg", &base_tx[..10], &target_tx[..10]);
+        let out_path = format!(
+            "artifacts/diff/{}_vs_{}.svg",
+            &args.base_tx[..10],
+            &args.target_tx[..10]
+        );
         std::fs::create_dir_all("artifacts/diff").ok();
         std::fs::write(&out_path, svg_out).context("Failed to write diff SVG")?;
-        pb_svg.finish_with_message(format!("{} Diff SVG saved → {}", "✔".green().bold(), out_path.cyan()));
+        pb_svg.finish_with_message(format!(
+            "{} Diff SVG saved → {}",
+            "✔".green().bold(),
+            out_path.cyan()
+        ));
     }
 
     if !failures.is_empty() {
@@ -1356,8 +1421,11 @@ fn process_generic_diff(
         for f in failures.iter() {
             println!("     - {}", f.red());
         }
-        return Err(anyhow::anyhow!("{network_name} regression thresholds exceeded"));
-    } else if threshold.is_some() {
+        return Err(anyhow::anyhow!(
+            "{} regression thresholds exceeded",
+            args.network_name
+        ));
+    } else if args.threshold.is_some() {
         println!(
             "\n  {} Execution cost within acceptable limits.",
             "✅ [PASSED]".green().bold()

@@ -67,8 +67,10 @@ impl SvgGenerator {
         const SEPARATOR_H: f64 = 28.0; // height of the EVM/WASM divider row
         const MIN_BAR_PX: f64 = 2.0;
 
-        let evm_stacks: Vec<&CollapsedStack> =
-            stacks.iter().filter(|s| s.vm_kind != VmKind::Stylus).collect();
+        let evm_stacks: Vec<&CollapsedStack> = stacks
+            .iter()
+            .filter(|s| s.vm_kind != VmKind::Stylus)
+            .collect();
         let wasm_stacks: Vec<&CollapsedStack> = stacks
             .iter()
             .filter(|s| s.vm_kind == VmKind::Stylus)
@@ -208,7 +210,7 @@ impl SvgGenerator {
 
         let has_starknet = evm_stacks.iter().any(|s| s.vm_kind == VmKind::Starknet);
         let has_stellar = evm_stacks.iter().any(|s| s.vm_kind == VmKind::Stellar);
-        
+
         let height = (current_y + 16.0) as u32;
         let template = FlamegraphTemplate {
             stacks: entries,

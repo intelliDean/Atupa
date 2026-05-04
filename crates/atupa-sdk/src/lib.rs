@@ -63,12 +63,12 @@ pub mod profile {
     use anyhow::Result;
     use atupa_core::{CollapsedStack, VmKind};
     use atupa_nitro::{NitroClient, VmKind as NitroVmKind};
-    use atupa_starknet::StarknetClient;
-    use atupa_solana::{SolanaClient, SolanaLogStitcher};
-    use atupa_stellar::StellarClient;
     use atupa_output::SvgGenerator;
     use atupa_parser::{Parser as AtupaParser, aggregator::Aggregator};
     use atupa_rpc::etherscan::EtherscanResolver;
+    use atupa_solana::{SolanaClient, SolanaLogStitcher};
+    use atupa_starknet::StarknetClient;
+    use atupa_stellar::StellarClient;
     use indicatif::{ProgressBar, ProgressStyle};
     use std::{fs, time::Duration};
 
@@ -92,15 +92,17 @@ pub mod profile {
             (demo_stacks(), "Demo".to_string())
         } else {
             pb.set_message("Detecting network and fetching execution trace…");
-            
+
             // Heuristic-based client selection
             // In a production version, we would perform a chainId probe or use explicit flags.
             if rpc.contains("starknet") || tx.len() > 66 {
                 pb.set_message("Starknet node detected. Fetching Cairo VM trace…");
                 let client = StarknetClient::new(rpc.to_string());
-                let steps = client.profile_transaction(tx).await
+                let steps = client
+                    .profile_transaction(tx)
+                    .await
                     .map_err(|e| anyhow::anyhow!("Starknet RPC error: {e}"))?;
-                
+
                 let normalized = AtupaParser::normalize_raw(steps);
                 let combined = Aggregator::build_collapsed_stacks(&normalized);
                 (combined, "Starknet".to_string())
@@ -108,9 +110,11 @@ pub mod profile {
                 // Solana signatures are base58 and ~44-88 chars
                 pb.set_message("Solana node detected. Reconstructing Sealevel VM trace…");
                 let client = SolanaClient::new(rpc.to_string());
-                let logs = client.get_transaction_logs(tx).await
+                let logs = client
+                    .get_transaction_logs(tx)
+                    .await
                     .map_err(|e| anyhow::anyhow!("Solana RPC error: {e}"))?;
-                
+
                 let steps = SolanaLogStitcher::parse_logs(&logs);
                 let normalized = AtupaParser::normalize_raw(steps);
                 let combined = Aggregator::build_collapsed_stacks(&normalized);
@@ -119,9 +123,11 @@ pub mod profile {
                 // Stellar hashes are 64 hex chars
                 pb.set_message("Stellar node detected. Fetching Soroban diagnostic trace…");
                 let client = StellarClient::new(rpc.to_string());
-                let steps = client.get_transaction_trace(tx).await
+                let steps = client
+                    .get_transaction_trace(tx)
+                    .await
                     .map_err(|e| anyhow::anyhow!("Stellar RPC error: {e}"))?;
-                
+
                 let normalized = AtupaParser::normalize_raw(steps);
                 let combined = Aggregator::build_collapsed_stacks(&normalized);
                 (combined, "Stellar".to_string())
@@ -131,7 +137,9 @@ pub mod profile {
                     tokio::time::timeout(Duration::from_secs(30), client.trace_transaction(tx))
                         .await
                         .map_err(|_| {
-                            anyhow::anyhow!("RPC timed out after 30s — is the node reachable at {rpc}?")
+                            anyhow::anyhow!(
+                                "RPC timed out after 30s — is the node reachable at {rpc}?"
+                            )
                         })?
                         .map_err(|e| anyhow::anyhow!("RPC error: {e}"))?;
 
