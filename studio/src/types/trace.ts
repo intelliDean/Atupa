@@ -1,7 +1,7 @@
 // ─── Atupa Studio — Trace Data Types ─────────────────────────────────────────
 // Mirrors the Rust `StitchedReport` / `UnifiedStep` structures.
 
-export type VmKind = 'Evm' | 'Stylus';
+export type VmKind = 'Evm' | 'Stylus' | 'Starknet' | 'Solana' | 'Stellar';
 
 export type GasCategory = 
   | 'StorageWrite' 

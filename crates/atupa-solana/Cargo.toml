@@ -1,5 +1,5 @@
 [package]
-name = "atupa-aave"
+name = "atupa-solana"
 version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
@@ -7,15 +7,18 @@ repository = { workspace = true }
 readme = { workspace = true }
 homepage = { workspace = true }
 documentation = { workspace = true }
-description = "DeepTracer: Aave v3 & GHO protocol adapter for the Atupa EVM profiling engine"
-keywords = ["aave", "ethereum", "evm", "defi", "liquidation"]
+description = "Solana Sealevel VM log-to-trace adapter for the Atupa engine"
+keywords = ["solana", "sealevel", "tracing", "logs"]
 categories = ["development-tools", "cryptography::cryptocurrencies"]
 
 [dependencies]
 atupa-core = { workspace = true }
-atupa-adapters = { workspace = true }
+atupa-rpc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+regex = "1.11.1"

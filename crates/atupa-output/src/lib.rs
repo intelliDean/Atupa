@@ -13,6 +13,8 @@ struct FlamegraphTemplate {
     width: u32,
     height: u32,
     has_wasm: bool,
+    has_starknet: bool,
+    has_stellar: bool,
 }
 
 struct StackEntry {
@@ -66,7 +68,7 @@ impl SvgGenerator {
         const MIN_BAR_PX: f64 = 2.0;
 
         let evm_stacks: Vec<&CollapsedStack> =
-            stacks.iter().filter(|s| s.vm_kind == VmKind::Evm).collect();
+            stacks.iter().filter(|s| s.vm_kind != VmKind::Stylus).collect();
         let wasm_stacks: Vec<&CollapsedStack> = stacks
             .iter()
             .filter(|s| s.vm_kind == VmKind::Stylus)
@@ -108,7 +110,12 @@ impl SvgGenerator {
                 let class = if stack.reverted {
                     "box-revert"
                 } else {
-                    "box-evm"
+                    match stack.vm_kind {
+                        VmKind::Starknet => "box-starknet",
+                        VmKind::Solana => "box-solana",
+                        VmKind::Stellar => "box-stellar",
+                        _ => "box-evm",
+                    }
                 };
                 let label = Self::make_label(stack, bar_w);
                 let pct = if global_evm_weight > 0 {
@@ -199,12 +206,17 @@ impl SvgGenerator {
             current_y += BAR_H + GAP;
         }
 
+        let has_starknet = evm_stacks.iter().any(|s| s.vm_kind == VmKind::Starknet);
+        let has_stellar = evm_stacks.iter().any(|s| s.vm_kind == VmKind::Stellar);
+        
         let height = (current_y + 16.0) as u32;
         let template = FlamegraphTemplate {
             stacks: entries,
             width: SVG_W as u32,
             height,
             has_wasm,
+            has_starknet,
+            has_stellar,
         };
         Ok(template.render()?)
     }

@@ -2,7 +2,6 @@
 name = "atupa-sdk"
 version = { workspace = true }
 edition = { workspace = true }
-authors = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
 description = { workspace = true }
@@ -22,6 +21,9 @@ atupa-output   = { workspace = true }
 atupa-aave     = { workspace = true }
 atupa-lido     = { workspace = true }
 atupa-nitro    = { workspace = true }
+atupa-starknet = { workspace = true }
+atupa-solana   = { workspace = true }
+atupa-stellar  = { workspace = true }
 
 # Runtime deps needed by the high-level profile module
 tokio     = { workspace = true }

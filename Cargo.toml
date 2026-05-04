@@ -10,13 +10,15 @@ members = [
     "crates/atupa-aave",
     "crates/atupa-nitro",
     "crates/atupa-lido",
+    "crates/atupa-starknet",
+    "crates/atupa-solana",
+    "crates/atupa-stellar",
     "bin/atupa",
 ]
 
 [workspace.package]
 version = "0.1.1"
 edition = "2024"
-authors = ["Dean <ethos@eth-trace.io>"]
 description = "Atupa: High-Fidelity Ethereum Tracing & Visual Profiling Suite"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
@@ -66,3 +68,6 @@ atupa-output = { path = "crates/atupa-output", version = "0.1.1" }
 atupa-aave = { path = "crates/atupa-aave", version = "0.1.1" }
 atupa-nitro = { path = "crates/atupa-nitro", version = "0.1.1" }
 atupa-lido = { path = "crates/atupa-lido", version = "0.1.1" }
+atupa-starknet = { path = "crates/atupa-starknet", version = "0.1.1" }
+atupa-solana = { path = "crates/atupa-solana", version = "0.1.1" }
+atupa-stellar = { path = "crates/atupa-stellar", version = "0.1.1" }

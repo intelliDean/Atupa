@@ -15,6 +15,21 @@
       <stop offset="0%" stop-color="#f87171" />
       <stop offset="100%" stop-color="#991b1b" />
     </linearGradient>
+    <!-- Starknet gradient: purple → indigo -->
+    <linearGradient id="grad-starknet" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#4338ca" />
+    </linearGradient>
+    <!-- Solana gradient: teal → emerald -->
+    <linearGradient id="grad-solana" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <!-- Stellar gradient: cyan → deep blue -->
+    <linearGradient id="grad-stellar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#1e3a8a" />
+    </linearGradient>
   </defs>
 
   <style>
@@ -24,6 +39,9 @@
     .box-evm   { fill: url(#grad-evm);    stroke: #1e3a5f; stroke-width: 0.5; }
     .box-wasm  { fill: url(#grad-wasm);   stroke: #78350f; stroke-width: 0.5; }
     .box-revert{ fill: url(#grad-revert); stroke: #7f1d1d; stroke-width: 0.5; }
+    .box-starknet { fill: url(#grad-starknet); stroke: #312e81; stroke-width: 0.5; }
+    .box-solana { fill: url(#grad-solana); stroke: #064e3b; stroke-width: 0.5; }
+    .box-stellar { fill: url(#grad-stellar); stroke: #172554; stroke-width: 0.5; }
   </style>
 
   <!-- Legend row -->
@@ -32,9 +50,24 @@
   {% if has_wasm %}
   <rect x="108" y="8" width="12" height="12" rx="2" class="box-wasm" />
   <text x="124" y="14" class="legend">Stylus / WASM</text>
-  {% endif %}
   <rect x="238" y="8" width="12" height="12" rx="2" class="box-revert" />
   <text x="254" y="14" class="legend">Reverted</text>
+  {% else if has_starknet %}
+  <rect x="108" y="8" width="12" height="12" rx="2" class="box-starknet" />
+  <text x="124" y="14" class="legend">Starknet Cairo</text>
+  <rect x="238" y="8" width="12" height="12" rx="2" class="box-revert" />
+  <text x="254" y="14" class="legend">Reverted</text>
+  {% else if has_stellar %}
+  <rect x="108" y="8" width="12" height="12" rx="2" class="box-stellar" />
+  <text x="124" y="14" class="legend">Stellar Soroban</text>
+  <rect x="238" y="8" width="12" height="12" rx="2" class="box-revert" />
+  <text x="254" y="14" class="legend">Reverted</text>
+  {% else %}
+  <rect x="108" y="8" width="12" height="12" rx="2" class="box-solana" />
+  <text x="124" y="14" class="legend">Solana Program</text>
+  <rect x="238" y="8" width="12" height="12" rx="2" class="box-revert" />
+  <text x="254" y="14" class="legend">Reverted</text>
+  {% endif %}
 
   <!-- Flame bars -->
   {% for entry in stacks %}

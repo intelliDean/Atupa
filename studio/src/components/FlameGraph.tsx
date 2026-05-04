@@ -34,6 +34,15 @@ const COLORS = {
   rootFill:      '#0d0f1a',
   rootStroke:    '#1e2435',
   rootText:      '#64748b',
+  starknetFill:   '#1e1b4b',
+  starknetStroke: '#4338ca',
+  starknetText:   '#a5b4fc',
+  solanaFill:     '#064e3b',
+  solanaStroke:   '#059669',
+  solanaText:     '#6ee7b7',
+  stellarFill:    '#172554',
+  stellarStroke:  '#1e3a8a',
+  stellarText:    '#93c5fd',
   tooltipBg:     '#181c2a',
   tooltipBorder: '#2e3a5a',
   tooltipText:   '#e2e8f0',
@@ -48,11 +57,21 @@ interface TooltipState {
 }
 
 function Tooltip({ tip }: { tip: TooltipState }) {
-  const selfPct =
-    tip.node.value > 0
-      ? ((tip.node.selfCost / tip.node.value) * 100).toFixed(1)
-      : '0.0';
-  const vmLabel = tip.node.vm === 'Evm' ? 'EVM' : 'WASM/Stylus';
+  const vmLabel = {
+    Evm: 'EVM',
+    Stylus: 'WASM/Stylus',
+    Starknet: 'Starknet Cairo',
+    Solana: 'Solana SVM',
+    Stellar: 'Stellar Soroban',
+  }[tip.node.vm] || tip.node.vm;
+
+  const vmColor = {
+    Evm: COLORS.evmText,
+    Stylus: COLORS.stylusText,
+    Starknet: COLORS.starknetText,
+    Solana: COLORS.solanaText,
+    Stellar: COLORS.stellarText,
+  }[tip.node.vm] || '#fff';
 
   return (
     <foreignObject
@@ -80,7 +99,7 @@ function Tooltip({ tip }: { tip: TooltipState }) {
           {tip.node.name}
         </div>
         <div style={{ color: '#94a3b8' }}>
-          VM: <span style={{ color: tip.node.vm === 'Evm' ? COLORS.evmText : COLORS.stylusText }}>{vmLabel}</span>
+          VM: <span style={{ color: vmColor }}>{vmLabel}</span>
         </div>
         <div style={{ color: '#94a3b8' }}>
           Total: <span style={{ color: '#e2e8f0' }}>{tip.node.value.toLocaleString('en-US', { maximumFractionDigits: 2 })} gas</span>
@@ -167,6 +186,12 @@ const Bar = React.memo(function Bar({
     fill = COLORS.boundaryFill; stroke = COLORS.boundaryStroke; textColor = COLORS.boundaryText;
   } else if (node.vm === 'Stylus') {
     fill = COLORS.stylusFill; stroke = COLORS.stylusStroke; textColor = COLORS.stylusText;
+  } else if (node.vm === 'Starknet') {
+    fill = COLORS.starknetFill; stroke = COLORS.starknetStroke; textColor = COLORS.starknetText;
+  } else if (node.vm === 'Solana') {
+    fill = COLORS.solanaFill; stroke = COLORS.solanaStroke; textColor = COLORS.solanaText;
+  } else if (node.vm === 'Stellar') {
+    fill = COLORS.stellarFill; stroke = COLORS.stellarStroke; textColor = COLORS.stellarText;
   } else {
     fill = COLORS.evmFill; stroke = COLORS.evmStroke; textColor = COLORS.evmText;
   }
@@ -371,8 +396,11 @@ export function FlameGraph({ root, search = '' }: Props) {
         }}
       >
         {[
-          { color: COLORS.evmStroke, label: 'EVM opcode' },
-          { color: COLORS.stylusStroke, label: 'Stylus WASM' },
+          { color: COLORS.evmStroke, label: 'EVM' },
+          { color: COLORS.stylusStroke, label: 'Stylus' },
+          { color: COLORS.starknetStroke, label: 'Starknet' },
+          { color: COLORS.solanaStroke, label: 'Solana' },
+          { color: COLORS.stellarStroke, label: 'Stellar' },
           { color: '#6d28d9', label: 'VM Boundary' },
           { color: '#ff2a4a', label: 'Search match' },
         ].map(({ color, label }) => (

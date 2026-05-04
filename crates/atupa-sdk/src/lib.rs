@@ -45,6 +45,15 @@ pub use atupa_aave as aave;
 /// Lido stETH protocol adapter.
 pub use atupa_lido as lido;
 
+/// Starknet (Cairo VM) protocol adapter.
+pub use atupa_starknet as starknet;
+
+/// Solana (Sealevel VM) protocol adapter.
+pub use atupa_solana as solana;
+
+/// Stellar (Soroban WASM VM) protocol adapter.
+pub use atupa_stellar as stellar;
+
 // ─── High-level API ───────────────────────────────────────────────────────────
 
 pub use profile::execute_profile;
@@ -54,6 +63,9 @@ pub mod profile {
     use anyhow::Result;
     use atupa_core::{CollapsedStack, VmKind};
     use atupa_nitro::{NitroClient, VmKind as NitroVmKind};
+    use atupa_starknet::StarknetClient;
+    use atupa_solana::{SolanaClient, SolanaLogStitcher};
+    use atupa_stellar::StellarClient;
     use atupa_output::SvgGenerator;
     use atupa_parser::{Parser as AtupaParser, aggregator::Aggregator};
     use atupa_rpc::etherscan::EtherscanResolver;
@@ -80,54 +92,83 @@ pub mod profile {
             (demo_stacks(), "Demo".to_string())
         } else {
             pb.set_message("Detecting network and fetching execution trace…");
-            let client = NitroClient::new(rpc.to_string());
-            let report =
-                tokio::time::timeout(Duration::from_secs(30), client.trace_transaction(tx))
-                    .await
-                    .map_err(|_| {
-                        anyhow::anyhow!("RPC timed out after 30s — is the node reachable at {rpc}?")
-                    })?
-                    .map_err(|e| anyhow::anyhow!("RPC error: {e}"))?;
+            
+            // Heuristic-based client selection
+            // In a production version, we would perform a chainId probe or use explicit flags.
+            if rpc.contains("starknet") || tx.len() > 66 {
+                pb.set_message("Starknet node detected. Fetching Cairo VM trace…");
+                let client = StarknetClient::new(rpc.to_string());
+                let steps = client.profile_transaction(tx).await
+                    .map_err(|e| anyhow::anyhow!("Starknet RPC error: {e}"))?;
+                
+                let normalized = AtupaParser::normalize_raw(steps);
+                let combined = Aggregator::build_collapsed_stacks(&normalized);
+                (combined, "Starknet".to_string())
+            } else if rpc.contains("solana") || tx.len() > 66 || tx.len() == 44 {
+                // Solana signatures are base58 and ~44-88 chars
+                pb.set_message("Solana node detected. Reconstructing Sealevel VM trace…");
+                let client = SolanaClient::new(rpc.to_string());
+                let logs = client.get_transaction_logs(tx).await
+                    .map_err(|e| anyhow::anyhow!("Solana RPC error: {e}"))?;
+                
+                let steps = SolanaLogStitcher::parse_logs(&logs);
+                let normalized = AtupaParser::normalize_raw(steps);
+                let combined = Aggregator::build_collapsed_stacks(&normalized);
+                (combined, "Solana".to_string())
+            } else if rpc.contains("stellar") || rpc.contains("soroban") || tx.len() == 64 {
+                // Stellar hashes are 64 hex chars
+                pb.set_message("Stellar node detected. Fetching Soroban diagnostic trace…");
+                let client = StellarClient::new(rpc.to_string());
+                let steps = client.get_transaction_trace(tx).await
+                    .map_err(|e| anyhow::anyhow!("Stellar RPC error: {e}"))?;
+                
+                let normalized = AtupaParser::normalize_raw(steps);
+                let combined = Aggregator::build_collapsed_stacks(&normalized);
+                (combined, "Stellar".to_string())
+            } else {
+                let client = NitroClient::new(rpc.to_string());
+                let report =
+                    tokio::time::timeout(Duration::from_secs(30), client.trace_transaction(tx))
+                        .await
+                        .map_err(|_| {
+                            anyhow::anyhow!("RPC timed out after 30s — is the node reachable at {rpc}?")
+                        })?
+                        .map_err(|e| anyhow::anyhow!("RPC error: {e}"))?;
 
-            let network = get_network_name(report.chain_id);
-            let evm_count = report
-                .steps
-                .iter()
-                .filter(|s| s.vm == NitroVmKind::Evm)
-                .count();
-            let wasm_count = report
-                .steps
-                .iter()
-                .filter(|s| s.vm == NitroVmKind::Stylus)
-                .count();
-            pb.set_message(format!(
-                "Processing {evm_count} EVM + {wasm_count} Stylus steps from {network}…"
-            ));
+                let network = get_network_name(report.chain_id);
+                let evm_count = report
+                    .steps
+                    .iter()
+                    .filter(|s| s.vm == NitroVmKind::Evm)
+                    .count();
+                let wasm_count = report
+                    .steps
+                    .iter()
+                    .filter(|s| s.vm == NitroVmKind::Stylus)
+                    .count();
+                pb.set_message(format!(
+                    "Processing {evm_count} EVM + {wasm_count} Stylus steps from {network}…"
+                ));
 
-            // ── Unified single-pass aggregation ────────────────────────────────
-            // Convert the interleaved UnifiedStep timeline into core TraceSteps.
-            // Stylus steps already carry depth = (parent CALL depth + 1) and a
-            // gas_cost equal to ink / 10_000, so the Aggregator nests them under
-            // their EVM CALL frames without any special-casing.
-            let unified_steps: Vec<atupa_core::TraceStep> =
-                report.steps.iter().map(|s| s.to_trace_step()).collect();
+                let unified_steps: Vec<atupa_core::TraceStep> =
+                    report.steps.iter().map(|s| s.to_trace_step()).collect();
 
-            let normalized = AtupaParser::normalize_raw(unified_steps);
-            let mut combined = Aggregator::build_collapsed_stacks(&normalized);
+                let normalized = AtupaParser::normalize_raw(unified_steps);
+                let mut combined = Aggregator::build_collapsed_stacks(&normalized);
 
-            // Etherscan resolution — only meaningful for EVM steps with an address.
-            pb.set_message("Resolving contract names via Etherscan…");
-            let resolver = EtherscanResolver::new(etherscan_key, report.chain_id);
-            for stack in &mut combined {
-                if stack.vm_kind == VmKind::Evm
-                    && let Some(addr) = &stack.target_address
-                    && let Some(name) = resolver.resolve_contract_name(addr).await
-                {
-                    stack.target_address = Some(name);
+                // Etherscan resolution — only meaningful for EVM steps with an address.
+                pb.set_message("Resolving contract names via Etherscan…");
+                let resolver = EtherscanResolver::new(etherscan_key, report.chain_id);
+                for stack in &mut combined {
+                    if stack.vm_kind == VmKind::Evm
+                        && let Some(addr) = &stack.target_address
+                        && let Some(name) = resolver.resolve_contract_name(addr).await
+                    {
+                        stack.target_address = Some(name);
+                    }
                 }
+                (combined, network)
             }
-
-            (combined, network)
         };
 
         // Sort EVM stacks descending by weight; Stylus stacks come after

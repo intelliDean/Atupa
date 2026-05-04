@@ -32,6 +32,8 @@ impl GasCategory {
         match vm {
             VmKind::Evm => Self::from_evm(op),
             VmKind::Stylus => Self::from_stylus(op),
+            VmKind::Starknet => Self::from_starknet(op),
+            _ => Self::Other,
         }
     }
 
@@ -84,6 +86,23 @@ impl GasCategory {
             Self::Other
         }
     }
+
+    fn from_starknet(op: &str) -> Self {
+        let op = op.to_lowercase();
+        if op.contains("storage_read") {
+            Self::StorageRead
+        } else if op.contains("storage_write") {
+            Self::StorageWrite
+        } else if op.contains("keccak") || op.contains("pedersen") || op.contains("poseidon") {
+            Self::Crypto
+        } else if op.contains("call") || op.contains("deploy") || op.contains("invoke") {
+            Self::Call
+        } else if op.contains("range_check") || op.contains("bitwise") || op.contains("steps") {
+            Self::Execution
+        } else {
+            Self::Other
+        }
+    }
 }
 
 /// A single step in the EVM execution trace (equivalent to structLog).
@@ -110,6 +129,9 @@ pub enum VmKind {
     #[default]
     Evm,
     Stylus,
+    Starknet,
+    Solana,
+    Stellar,
 }
 
 /// A single collapsed stack entry for aggregation.

@@ -2,7 +2,6 @@
 name        = "atupa"
 version     = { workspace = true }
 edition     = { workspace = true }
-authors     = { workspace = true }
 license     = { workspace = true }
 description = "atupa — Unified EVM + Stylus Execution Profiler CLI"
 readme      = { workspace = true }
@@ -22,6 +21,9 @@ atupa-aave    = { workspace = true }
 atupa-lido    = { workspace = true }
 atupa-parser  = { workspace = true }
 atupa-output  = { workspace = true }
+atupa-starknet= { workspace = true }
+atupa-solana  = { workspace = true }
+atupa-stellar = { workspace = true }
 
 # CLI
 clap = { workspace = true }

@@ -145,7 +145,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "atupa"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "atupa-aave",
@@ -156,6 +156,9 @@ dependencies = [
  "atupa-parser",
  "atupa-rpc",
  "atupa-sdk",
+ "atupa-solana",
+ "atupa-starknet",
+ "atupa-stellar",
  "axum",
  "clap",
  "colored",
@@ -174,7 +177,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-aave"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "atupa-adapters",
@@ -187,7 +190,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-adapters"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "atupa-core",
@@ -198,7 +201,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -212,7 +215,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-lido"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "atupa-adapters",
@@ -224,7 +227,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-nitro"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "atupa-core",
@@ -239,7 +242,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-output"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "askama",
@@ -251,7 +254,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-parser"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "atupa-adapters",
@@ -265,7 +268,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-rpc"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "atupa-core",
@@ -280,7 +283,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-sdk"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "atupa-aave",
@@ -291,8 +294,57 @@ dependencies = [
  "atupa-output",
  "atupa-parser",
  "atupa-rpc",
+ "atupa-solana",
+ "atupa-starknet",
+ "atupa-stellar",
  "indicatif",
  "log",
+ "tokio",
+]
+
+[[package]]
+name = "atupa-solana"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "atupa-core",
+ "atupa-rpc",
+ "log",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
+name = "atupa-starknet"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "atupa-core",
+ "atupa-rpc",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
+name = "atupa-stellar"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "atupa-core",
+ "atupa-rpc",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
