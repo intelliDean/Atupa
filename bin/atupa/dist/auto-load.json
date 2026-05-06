@@ -1,0 +1,734 @@
+{
+  "tx_hash": "0x6bbe6b5f0e86f1cd2b3f2375888294d75962dad926cc93654783101fa219b5b1",
+  "chain_id": 421614,
+  "steps": [
+    {
+      "index": 0,
+      "vm": "Evm",
+      "label": "SLOAD",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "SLOAD",
+        "gas": 0,
+        "gasCost": 0,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x15fed0451499512d95f3ec5a41c878b9de55f21878b5b4e190d4667ec709b400"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 1,
+      "vm": "Evm",
+      "label": "SLOAD",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "SLOAD",
+        "gas": 0,
+        "gasCost": 0,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x3c79da47f96b0f39664f73c0a1f350580be90742947dddfa21ba64d578dfe600"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 2,
+      "vm": "Evm",
+      "label": "CALLDATACOPY",
+      "gas_cost": 1,
+      "cost_equiv": 1.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "CALLDATACOPY",
+        "gas": 148212,
+        "gasCost": 1,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x84",
+          "0x0",
+          "0x0"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 3,
+      "vm": "Evm",
+      "label": "CALLVALUE",
+      "gas_cost": 1,
+      "cost_equiv": 1.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "CALLVALUE",
+        "gas": 148182,
+        "gasCost": 1,
+        "depth": 1,
+        "error": null,
+        "stack": [],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 4,
+      "vm": "Evm",
+      "label": "POP",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "POP",
+        "gas": 148182,
+        "gasCost": 0,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x0"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 5,
+      "vm": "Evm",
+      "label": "KECCAK256",
+      "gas_cost": 12,
+      "cost_equiv": 12.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "KECCAK256",
+        "gas": 147714,
+        "gasCost": 12,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x4",
+          "0x0"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 6,
+      "vm": "Evm",
+      "label": "POP",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "POP",
+        "gas": 147714,
+        "gasCost": 0,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x2ea64222d73f6bed65c6e146c5134ff56758d059176393679833acbdc5ddb996"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 7,
+      "vm": "Evm",
+      "label": "KECCAK256",
+      "gas_cost": 12,
+      "cost_equiv": 12.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "KECCAK256",
+        "gas": 147558,
+        "gasCost": 12,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x40",
+          "0x0"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 8,
+      "vm": "Evm",
+      "label": "POP",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "POP",
+        "gas": 147558,
+        "gasCost": 0,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x4ada666fb50064f97287f2b34f4570a81a8905ca591a284c268f9178c3e493eb"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 9,
+      "vm": "Evm",
+      "label": "SLOAD",
+      "gas_cost": 2106,
+      "cost_equiv": 2106.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "SLOAD",
+        "gas": 145408,
+        "gasCost": 2106,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x4ada666fb50064f97287f2b34f4570a81a8905ca591a284c268f9178c3e493eb"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 10,
+      "vm": "Evm",
+      "label": "POP",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "POP",
+        "gas": 145408,
+        "gasCost": 0,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x0"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 11,
+      "vm": "Evm",
+      "label": "KECCAK256",
+      "gas_cost": 12,
+      "cost_equiv": 12.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "KECCAK256",
+        "gas": 145165,
+        "gasCost": 12,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x40",
+          "0x0"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 12,
+      "vm": "Evm",
+      "label": "POP",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "POP",
+        "gas": 145165,
+        "gasCost": 0,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0xc6e5a39087be1d5cd5d0d8ab27c9b771ce9ebb1e6a826ce42e658b0300862a25"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 13,
+      "vm": "Evm",
+      "label": "SLOAD",
+      "gas_cost": 2106,
+      "cost_equiv": 2106.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "SLOAD",
+        "gas": 143025,
+        "gasCost": 2106,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0xc6e5a39087be1d5cd5d0d8ab27c9b771ce9ebb1e6a826ce42e658b0300862a25"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 14,
+      "vm": "Evm",
+      "label": "POP",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "POP",
+        "gas": 143025,
+        "gasCost": 0,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x0"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 15,
+      "vm": "Evm",
+      "label": "SSTORE",
+      "gas_cost": 40006,
+      "cost_equiv": 40006.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "SSTORE",
+        "gas": 102927,
+        "gasCost": 40006,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0x546f706f00000000000000000000000000000000000000000000000000000008",
+          "0x4ada666fb50064f97287f2b34f4570a81a8905ca591a284c268f9178c3e493eb"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 16,
+      "vm": "Evm",
+      "label": "SSTORE",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "SSTORE",
+        "gas": 102927,
+        "gasCost": 0,
+        "depth": 1,
+        "error": null,
+        "stack": [
+          "0xa239ccf7473f25021b73cef560aec6a2b54205e0",
+          "0xc6e5a39087be1d5cd5d0d8ab27c9b771ce9ebb1e6a826ce42e658b0300862a25"
+        ],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 17,
+      "vm": "Evm",
+      "label": "STOP",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "evm": {
+        "pc": 0,
+        "op": "STOP",
+        "gas": 102915,
+        "gasCost": 0,
+        "depth": 1,
+        "error": null,
+        "stack": [],
+        "memory": null,
+        "storage": null
+      },
+      "stylus": null
+    },
+    {
+      "index": 18,
+      "vm": "Stylus",
+      "label": "user_entrypoint",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "user_entrypoint",
+        "args": "0x00000084",
+        "outs": "0x",
+        "startInk": 1482360000,
+        "endInk": 1482360000,
+        "address": null
+      }
+    },
+    {
+      "index": 19,
+      "vm": "Stylus",
+      "label": "msg_reentrant",
+      "gas_cost": 0,
+      "cost_equiv": 0.84,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "msg_reentrant",
+        "args": "0x",
+        "outs": "0x00000000",
+        "startInk": 1482346196,
+        "endInk": 1482337796,
+        "address": null
+      }
+    },
+    {
+      "index": 20,
+      "vm": "Stylus",
+      "label": "pay_for_memory_grow",
+      "gas_cost": 0,
+      "cost_equiv": 0.84,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "pay_for_memory_grow",
+        "args": "0x0000",
+        "outs": "0x",
+        "startInk": 1482319337,
+        "endInk": 1482310937,
+        "address": null
+      }
+    },
+    {
+      "index": 21,
+      "vm": "Stylus",
+      "label": "read_args",
+      "gas_cost": 0,
+      "cost_equiv": 1.644,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "read_args",
+        "args": "0x",
+        "outs": "0x08ce483f000000000000000000000000a239ccf7473f25021b73cef560aec6a2b54205e000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000004546f706f00000000000000000000000000000000000000000000000000000000",
+        "startInk": 1482145155,
+        "endInk": 1482128715,
+        "address": null
+      }
+    },
+    {
+      "index": 22,
+      "vm": "Stylus",
+      "label": "msg_value",
+      "gas_cost": 0,
+      "cost_equiv": 1.344,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "msg_value",
+        "args": "0x",
+        "outs": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "startInk": 1481838718,
+        "endInk": 1481825278,
+        "address": null
+      }
+    },
+    {
+      "index": 23,
+      "vm": "Stylus",
+      "label": "native_keccak256",
+      "gas_cost": 0,
+      "cost_equiv": 12.18,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "native_keccak256",
+        "args": "0x546f706f",
+        "outs": "0x2ea64222d73f6bed65c6e146c5134ff56758d059176393679833acbdc5ddb996",
+        "startInk": 1477267363,
+        "endInk": 1477145563,
+        "address": null
+      }
+    },
+    {
+      "index": 24,
+      "vm": "Stylus",
+      "label": "native_keccak256",
+      "gas_cost": 0,
+      "cost_equiv": 12.18,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "native_keccak256",
+        "args": "0x000000000000000000000000a239ccf7473f25021b73cef560aec6a2b54205e00000000000000000000000000000000000000000000000000000000000000000",
+        "outs": "0x4ada666fb50064f97287f2b34f4570a81a8905ca591a284c268f9178c3e493eb",
+        "startInk": 1475711444,
+        "endInk": 1475589644,
+        "address": null
+      }
+    },
+    {
+      "index": 25,
+      "vm": "Stylus",
+      "label": "storage_load_bytes32",
+      "gas_cost": 0,
+      "cost_equiv": 2106.848,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "storage_load_bytes32",
+        "args": "0x4ada666fb50064f97287f2b34f4570a81a8905ca591a284c268f9178c3e493eb",
+        "outs": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "startInk": 1475152034,
+        "endInk": 1454083554,
+        "address": null
+      }
+    },
+    {
+      "index": 26,
+      "vm": "Stylus",
+      "label": "storage_cache_bytes32",
+      "gas_cost": 0,
+      "cost_equiv": 1.848,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "storage_cache_bytes32",
+        "args": "0x4ada666fb50064f97287f2b34f4570a81a8905ca591a284c268f9178c3e493eb0000000000000000000000000000000000000000000000000000000000000000",
+        "outs": "0x",
+        "startInk": 1453801396,
+        "endInk": 1453782916,
+        "address": null
+      }
+    },
+    {
+      "index": 27,
+      "vm": "Stylus",
+      "label": "storage_load_bytes32",
+      "gas_cost": 0,
+      "cost_equiv": 1.848,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "storage_load_bytes32",
+        "args": "0x4ada666fb50064f97287f2b34f4570a81a8905ca591a284c268f9178c3e493eb",
+        "outs": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "startInk": 1453511095,
+        "endInk": 1453492615,
+        "address": null
+      }
+    },
+    {
+      "index": 28,
+      "vm": "Stylus",
+      "label": "storage_cache_bytes32",
+      "gas_cost": 0,
+      "cost_equiv": 1.848,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "storage_cache_bytes32",
+        "args": "0x4ada666fb50064f97287f2b34f4570a81a8905ca591a284c268f9178c3e493eb546f706f00000000000000000000000000000000000000000000000000000008",
+        "outs": "0x",
+        "startInk": 1452946651,
+        "endInk": 1452928171,
+        "address": null
+      }
+    },
+    {
+      "index": 29,
+      "vm": "Stylus",
+      "label": "native_keccak256",
+      "gas_cost": 0,
+      "cost_equiv": 12.18,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "native_keccak256",
+        "args": "0x2ea64222d73f6bed65c6e146c5134ff56758d059176393679833acbdc5ddb9960000000000000000000000000000000000000000000000000000000000000001",
+        "outs": "0xc6e5a39087be1d5cd5d0d8ab27c9b771ce9ebb1e6a826ce42e658b0300862a25",
+        "startInk": 1451781379,
+        "endInk": 1451659579,
+        "address": null
+      }
+    },
+    {
+      "index": 30,
+      "vm": "Stylus",
+      "label": "storage_load_bytes32",
+      "gas_cost": 0,
+      "cost_equiv": 2106.848,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "storage_load_bytes32",
+        "args": "0xc6e5a39087be1d5cd5d0d8ab27c9b771ce9ebb1e6a826ce42e658b0300862a25",
+        "outs": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "startInk": 1451320253,
+        "endInk": 1430251773,
+        "address": null
+      }
+    },
+    {
+      "index": 31,
+      "vm": "Stylus",
+      "label": "storage_cache_bytes32",
+      "gas_cost": 0,
+      "cost_equiv": 1.848,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "storage_cache_bytes32",
+        "args": "0xc6e5a39087be1d5cd5d0d8ab27c9b771ce9ebb1e6a826ce42e658b0300862a25000000000000000000000000a239ccf7473f25021b73cef560aec6a2b54205e0",
+        "outs": "0x",
+        "startInk": 1429983151,
+        "endInk": 1429964671,
+        "address": null
+      }
+    },
+    {
+      "index": 32,
+      "vm": "Stylus",
+      "label": "storage_flush_cache",
+      "gas_cost": 0,
+      "cost_equiv": 40006.8073,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "storage_flush_cache",
+        "args": "0x00",
+        "outs": "0x",
+        "startInk": 1429347116,
+        "endInk": 1029279043,
+        "address": null
+      }
+    },
+    {
+      "index": 33,
+      "vm": "Stylus",
+      "label": "write_result",
+      "gas_cost": 0,
+      "cost_equiv": 4.1162,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "write_result",
+        "args": "0x",
+        "outs": "0x",
+        "startInk": 1029262306,
+        "endInk": 1029221144,
+        "address": null
+      }
+    },
+    {
+      "index": 34,
+      "vm": "Stylus",
+      "label": "user_returned",
+      "gas_cost": 0,
+      "cost_equiv": 0.0,
+      "depth": 0,
+      "is_vm_boundary": false,
+      "evm": null,
+      "stylus": {
+        "name": "user_returned",
+        "args": "0x",
+        "outs": "0x00000000",
+        "startInk": 1482360000,
+        "endInk": 1482360000,
+        "address": null
+      }
+    }
+  ],
+  "total_evm_gas": 44256,
+  "total_stylus_ink": 442732195,
+  "vm_boundary_count": 0,
+  "total_stylus_gas_equiv": 44273.2195,
+  "total_unified_cost": 88529.2195
+}
