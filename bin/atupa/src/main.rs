@@ -1211,14 +1211,16 @@ async fn handle_starknet_capture(
     };
 
     let pb_render = spinner("Rendering report…");
-    let json_for_disk = serde_json::to_string_pretty(&steps)?;
+    let report = trace_steps_to_report(tx, steps, VmKind::Starknet);
+    let json_for_disk = serde_json::to_string_pretty(&report)?;
     let rendered = match format {
         OutputFormat::Summary => format!(
-            "Starknet trace captured successfully with {} steps.",
-            steps.len()
+            "Starknet trace: {} steps · {:.2} gas-equiv",
+            report.steps.len(),
+            report.total_unified_cost
         ),
         OutputFormat::Json => json_for_disk.clone(),
-        OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
+        OutputFormat::Metric => format!("{:.4}", report.total_unified_cost),
     };
     pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
 
@@ -1254,14 +1256,16 @@ async fn handle_solana_capture(
     };
 
     let pb_render = spinner("Rendering report…");
-    let json_for_disk = serde_json::to_string_pretty(&steps)?;
+    let report = trace_steps_to_report(tx, steps, VmKind::Solana);
+    let json_for_disk = serde_json::to_string_pretty(&report)?;
     let rendered = match format {
         OutputFormat::Summary => format!(
-            "Solana trace reconstructed successfully with {} steps.",
-            steps.len()
+            "Solana trace: {} steps · {} compute units",
+            report.steps.len(),
+            report.total_evm_gas
         ),
         OutputFormat::Json => json_for_disk.clone(),
-        OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
+        OutputFormat::Metric => format!("{:.4}", report.total_unified_cost),
     };
     pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
 
@@ -1296,14 +1300,16 @@ async fn handle_stellar_capture(
     };
 
     let pb_render = spinner("Rendering report…");
-    let json_for_disk = serde_json::to_string_pretty(&steps)?;
+    let report = trace_steps_to_report(tx, steps, VmKind::Stellar);
+    let json_for_disk = serde_json::to_string_pretty(&report)?;
     let rendered = match format {
         OutputFormat::Summary => format!(
-            "Stellar trace reconstructed successfully with {} host function calls.",
-            steps.len()
+            "Stellar/Soroban trace: {} host function calls · {} resource units",
+            report.steps.len(),
+            report.total_evm_gas
         ),
         OutputFormat::Json => json_for_disk.clone(),
-        OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
+        OutputFormat::Metric => format!("{:.4}", report.total_unified_cost),
     };
     pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
 
@@ -2078,6 +2084,60 @@ fn bridge_raw_to_trace_step(raw: &RawStructLog) -> TraceStep {
         error: raw.error.clone(),
         reverted: raw.error.is_some(),
         vm_kind: atupa_core::VmKind::Evm,
+    }
+}
+
+/// Converts a flat `Vec<TraceStep>` (from Starknet/Solana/Stellar adapters)
+/// into a `StitchedReport` that the Studio and downstream tooling can consume.
+///
+/// All steps are assigned the given `chain_vm` kind so the Studio flame graph
+/// renders them with the correct chain-specific colour palette.
+fn trace_steps_to_report(
+    tx: &str,
+    steps: Vec<atupa_core::TraceStep>,
+    chain_vm: VmKind,
+) -> StitchedReport {
+    let mut total_gas: u64 = 0;
+    let mut category_costs: std::collections::HashMap<atupa_core::GasCategory, f64> =
+        std::collections::HashMap::new();
+
+    let unified: Vec<atupa_nitro::UnifiedStep> = steps
+        .into_iter()
+        .enumerate()
+        .map(|(i, s)| {
+            let cost = s.gas_cost as f64;
+            total_gas = total_gas.saturating_add(s.gas_cost);
+            let category =
+                atupa_core::GasCategory::from_step(&s.op, s.vm_kind.clone());
+            *category_costs.entry(category.clone()).or_insert(0.0) += cost;
+            atupa_nitro::UnifiedStep {
+                index: i,
+                vm: chain_vm.clone(),
+                label: s.op,
+                gas_cost: s.gas_cost,
+                cost_equiv: cost,
+                depth: s.depth,
+                is_vm_boundary: false,
+                category,
+                target_address: None,
+                evm: None,
+                stylus: None,
+            }
+        })
+        .collect();
+
+    StitchedReport {
+        tx_hash: tx.to_string(),
+        chain_id: 0,
+        steps: unified,
+        total_evm_gas: total_gas,
+        total_stylus_ink: 0,
+        vm_boundary_count: 0,
+        total_stylus_gas_equiv: 0.0,
+        total_unified_cost: total_gas as f64,
+        category_costs,
+        resolved_names: std::collections::HashMap::new(),
+        on_chain_gas_used: None,
     }
 }
 

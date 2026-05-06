@@ -67,6 +67,9 @@ impl StylusHostIO {
 pub enum VmKind {
     Evm,
     Stylus,
+    Starknet,
+    Solana,
+    Stellar,
 }
 
 impl From<VmKind> for CoreVmKind {
@@ -74,6 +77,9 @@ impl From<VmKind> for CoreVmKind {
         match v {
             VmKind::Evm => CoreVmKind::Evm,
             VmKind::Stylus => CoreVmKind::Stylus,
+            VmKind::Starknet => CoreVmKind::Starknet,
+            VmKind::Solana => CoreVmKind::Solana,
+            VmKind::Stellar => CoreVmKind::Stellar,
         }
     }
 }
