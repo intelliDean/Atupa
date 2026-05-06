@@ -1141,21 +1141,30 @@ fn generate_and_save_svg(
 }
 
 /// Helper to save the report to disk and print the final summary.
+///
+/// `rendered`     — the terminal-facing string (may contain ANSI escape codes for
+///                  Summary format). Printed to stdout; never written to disk.
+/// `json_for_disk` — always a clean, machine-readable JSON payload that is written
+///                  to the `.json` artifact file regardless of the `--output` flag.
+///                  Studio, CI diffing, and any downstream tooling read this file.
 fn finalize_report(
     rendered: &str,
     format: &OutputFormat,
+    json_for_disk: &str,
     file_option: Option<String>,
     tx: &str,
     svg_path: Option<String>,
 ) -> Result<String> {
     eprintln!();
-    if *format == OutputFormat::Summary {
-        println!("{}", rendered);
+    match format {
+        OutputFormat::Summary => println!("{}", rendered),
+        OutputFormat::Json => println!("{}", rendered),
+        OutputFormat::Metric => println!("{}", rendered),
     }
     eprintln!();
 
     let report_path = resolve_artifact_path(file_option, "capture", tx, "json");
-    std::fs::write(&report_path, rendered)
+    std::fs::write(&report_path, json_for_disk)
         .with_context(|| format!("Failed to write report to '{report_path}'"))?;
 
     eprintln!(
@@ -1202,17 +1211,18 @@ async fn handle_starknet_capture(
     };
 
     let pb_render = spinner("Rendering report…");
+    let json_for_disk = serde_json::to_string_pretty(&steps)?;
     let rendered = match format {
         OutputFormat::Summary => format!(
             "Starknet trace captured successfully with {} steps.",
             steps.len()
         ),
-        OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
+        OutputFormat::Json => json_for_disk.clone(),
         OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
     };
     pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
 
-    finalize_report(&rendered, &format, file, tx, svg_path)
+    finalize_report(&rendered, &format, &json_for_disk, file, tx, svg_path)
 }
 
 /// Generic handler for Solana traces
@@ -1244,17 +1254,18 @@ async fn handle_solana_capture(
     };
 
     let pb_render = spinner("Rendering report…");
+    let json_for_disk = serde_json::to_string_pretty(&steps)?;
     let rendered = match format {
         OutputFormat::Summary => format!(
             "Solana trace reconstructed successfully with {} steps.",
             steps.len()
         ),
-        OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
+        OutputFormat::Json => json_for_disk.clone(),
         OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
     };
     pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
 
-    finalize_report(&rendered, &format, file, tx, svg_path)
+    finalize_report(&rendered, &format, &json_for_disk, file, tx, svg_path)
 }
 
 /// Generic handler for Soroban (Stellar) traces
@@ -1285,17 +1296,18 @@ async fn handle_stellar_capture(
     };
 
     let pb_render = spinner("Rendering report…");
+    let json_for_disk = serde_json::to_string_pretty(&steps)?;
     let rendered = match format {
         OutputFormat::Summary => format!(
             "Stellar trace reconstructed successfully with {} host function calls.",
             steps.len()
         ),
-        OutputFormat::Json => serde_json::to_string_pretty(&steps)?,
+        OutputFormat::Json => json_for_disk.clone(),
         OutputFormat::Metric => steps.iter().map(|s| s.gas_cost).sum::<u64>().to_string(),
     };
     pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
 
-    finalize_report(&rendered, &format, file, tx, svg_path)
+    finalize_report(&rendered, &format, &json_for_disk, file, tx, svg_path)
 }
 
 /// Orchestrates the multi-VM capture for Arbitrum Nitro / EVM
@@ -1348,8 +1360,8 @@ async fn handle_nitro_capture(
         None
     };
 
-    let rendered = render_nitro_report(&report, &format)?;
-    finalize_report(&rendered, &format, file, tx, svg_path)
+    let (rendered, json_for_disk) = render_nitro_report(&report, &format)?;
+    finalize_report(&rendered, &format, &json_for_disk, file, tx, svg_path)
 }
 
 async fn resolve_names_via_etherscan(
@@ -1390,17 +1402,22 @@ async fn resolve_names_via_etherscan(
     Ok(())
 }
 
-fn render_nitro_report(report: &StitchedReport, format: &OutputFormat) -> Result<String> {
+/// Returns `(terminal_rendered, json_for_disk)`.
+///
+/// `terminal_rendered` may contain ANSI escape codes and is only for stdout.
+/// `json_for_disk` is always the full `StitchedReport` JSON — clean and
+/// machine-readable regardless of the user's `--output` flag.
+fn render_nitro_report(report: &StitchedReport, format: &OutputFormat) -> Result<(String, String)> {
     let pb_render = spinner("Rendering report…");
-    let summary_text = render_capture_summary(report);
+    let json_for_disk = serde_json::to_string_pretty(report)?;
 
     let rendered = match format {
-        OutputFormat::Summary => summary_text,
-        OutputFormat::Json => serde_json::to_string_pretty(report)?,
+        OutputFormat::Summary => render_capture_summary(report),
+        OutputFormat::Json => json_for_disk.clone(),
         OutputFormat::Metric => format!("{:.4}", report.total_unified_cost),
     };
     pb_render.finish_with_message(format!("{} Report ready.", "✔".green().bold()));
-    Ok(rendered)
+    Ok((rendered, json_for_disk))
 }
 
 /// Helper data for Nitro/EVM diff calculation
