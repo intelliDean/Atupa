@@ -77,6 +77,10 @@ enum Commands {
         /// Etherscan API key for contract name resolution
         #[arg(long, value_name = "KEY")]
         etherscan_key: Option<String>,
+
+        /// Explicitly select which VM runtime to use (default: auto-detect from RPC/tx)
+        #[arg(long, value_enum, value_name = "VM")]
+        vm: Option<VmTarget>,
     },
 
     /// Capture a unified EVM + Stylus execution trace (Arbitrum Nitro).
@@ -107,6 +111,10 @@ enum Commands {
         /// Launch Atupa Studio after capture and open it in the browser
         #[arg(long, default_value_t = false)]
         studio: bool,
+
+        /// Explicitly select which VM runtime to use (default: auto-detect from RPC URL)
+        #[arg(long, value_enum, value_name = "VM")]
+        vm: Option<VmTarget>,
     },
 
     /// Protocol-aware execution auditing (Aave v3/GHO, Lido)
@@ -153,6 +161,10 @@ enum Commands {
         /// Optional: Run DeepTracer on both and diff heuristics
         #[arg(short, long, value_enum)]
         protocol: Option<Protocol>,
+
+        /// Explicitly select which VM runtime to use (default: auto-detect from RPC URL)
+        #[arg(long, value_enum, value_name = "VM")]
+        vm: Option<VmTarget>,
     },
 
     /// Launch Atupa Studio — the local web visualizer for trace reports
@@ -191,6 +203,22 @@ enum OutputFormat {
     Metric,
 }
 
+/// Explicitly selects which VM runtime the profiler should use when
+/// auto-detection (based on RPC URL or tx-hash format) is ambiguous.
+#[derive(Clone, ValueEnum, Debug, PartialEq, Eq)]
+enum VmTarget {
+    /// Standard EVM / Arbitrum Nitro (default)
+    Evm,
+    /// Arbitrum Stylus / WASM (EVM + HostIO stitching)
+    Stylus,
+    /// Starknet Cairo VM
+    Starknet,
+    /// Solana Sealevel VM
+    Solana,
+    /// Stellar Soroban WASM VM
+    Stellar,
+}
+
 #[derive(Clone, ValueEnum, Debug)]
 enum Protocol {
     /// Aave v3 + GHO stablecoin protocol adapters
@@ -225,11 +253,12 @@ async fn main() -> Result<()> {
             demo,
             out,
             etherscan_key,
+            vm,
         } => {
             if let Some(key) = etherscan_key {
                 config.etherscan_key = Some(key);
             }
-            cmd_profile(&config, &tx, demo, out).await?;
+            cmd_profile(&config, &tx, demo, out, vm).await?;
         }
         Commands::Capture {
             tx,
@@ -238,11 +267,12 @@ async fn main() -> Result<()> {
             profile,
             etherscan_key,
             studio,
+            vm,
         } => {
             if let Some(key) = etherscan_key {
                 config.etherscan_key = Some(key);
             }
-            let report_path = cmd_capture(&config, &tx, output, file, profile).await?;
+            let report_path = cmd_capture(&config, &tx, output, file, profile, vm).await?;
             if studio {
                 // Pass the generated report path to Studio for auto-load
                 cmd_studio(&config, config.studio_port, true, report_path).await?;
@@ -260,6 +290,7 @@ async fn main() -> Result<()> {
             svg,
             protocol,
             output,
+            vm,
         } => {
             cmd_diff(
                 &config,
@@ -271,6 +302,7 @@ async fn main() -> Result<()> {
                 svg,
                 output,
                 protocol,
+                vm,
             )
             .await?;
         }
@@ -296,6 +328,7 @@ async fn cmd_profile(
     tx: &str,
     demo: bool,
     out: Option<String>,
+    vm: Option<VmTarget>,
 ) -> Result<()> {
     if !demo && tx.is_empty() {
         anyhow::bail!(
@@ -308,6 +341,15 @@ async fn cmd_profile(
     eprintln!("{} {}", "→ Profiling:".bold(), display.cyan());
     eprintln!("{} {}\n", "→ Endpoint: ".bold(), config.rpc_url.dimmed());
 
+    // Convert CLI VmTarget into the SDK's VmHint
+    let vm_hint = vm.map(|v| match v {
+        VmTarget::Evm => atupa::profile::VmHint::Evm,
+        VmTarget::Stylus => atupa::profile::VmHint::Stylus,
+        VmTarget::Starknet => atupa::profile::VmHint::Starknet,
+        VmTarget::Solana => atupa::profile::VmHint::Solana,
+        VmTarget::Stellar => atupa::profile::VmHint::Stellar,
+    });
+
     // Route output through the standard artifacts directory (same as capture)
     let svg_path = resolve_artifact_path(out, "profile", tx, "svg");
 
@@ -317,6 +359,7 @@ async fn cmd_profile(
         demo,
         Some(svg_path),
         config.etherscan_key.clone(),
+        vm_hint,
     )
     .await
     .context("Profile command failed")?;
@@ -346,16 +389,29 @@ async fn cmd_capture(
     format: OutputFormat,
     file: Option<String>,
     generate_profile: bool,
+    vm: Option<VmTarget>,
 ) -> Result<Option<String>> {
     let tx = normalise_hash(tx);
     eprintln!("{} {}", "→ Transaction:".bold(), tx.cyan());
     eprintln!("{} {}\n", "→ Endpoint:   ".bold(), config.rpc_url.dimmed());
 
-    let report_path = if config.rpc_url.contains("starknet") {
+    // Hint-or-heuristic routing (same priority logic as execute_profile)
+    let use_starknet = matches!(vm, Some(VmTarget::Starknet))
+        || (vm.is_none() && config.rpc_url.contains("starknet"));
+    let use_solana = !use_starknet
+        && (matches!(vm, Some(VmTarget::Solana))
+            || (vm.is_none() && config.rpc_url.contains("solana")));
+    let use_stellar = !use_starknet
+        && !use_solana
+        && (matches!(vm, Some(VmTarget::Stellar))
+            || (vm.is_none()
+                && (config.rpc_url.contains("stellar") || config.rpc_url.contains("soroban"))));
+
+    let report_path = if use_starknet {
         handle_starknet_capture(&config.rpc_url, &tx, format, file, generate_profile).await?
-    } else if config.rpc_url.contains("solana") {
+    } else if use_solana {
         handle_solana_capture(&config.rpc_url, &tx, format, file, generate_profile).await?
-    } else if config.rpc_url.contains("stellar") || config.rpc_url.contains("soroban") {
+    } else if use_stellar {
         handle_stellar_capture(&config.rpc_url, &tx, format, file, generate_profile).await?
     } else {
         handle_nitro_capture(config, &tx, format, file, generate_profile).await?
@@ -466,6 +522,7 @@ async fn cmd_diff(
     svg: bool,
     output_format: OutputFormat,
     protocol: Option<Protocol>,
+    vm: Option<VmTarget>,
 ) -> Result<()> {
     let base = normalise_hash(base);
     let target = normalise_hash(target);
@@ -479,11 +536,23 @@ async fn cmd_diff(
     );
     eprintln!("{} {}\n", "→ Endpoint:".bold(), config.rpc_url.dimmed());
 
-    if config.rpc_url.contains("solana") {
+    // Hint-or-heuristic routing
+    let use_solana = matches!(vm, Some(VmTarget::Solana))
+        || (vm.is_none() && config.rpc_url.contains("solana"));
+    let use_starknet = !use_solana
+        && (matches!(vm, Some(VmTarget::Starknet))
+            || (vm.is_none() && config.rpc_url.contains("starknet")));
+    let use_stellar = !use_solana
+        && !use_starknet
+        && (matches!(vm, Some(VmTarget::Stellar))
+            || (vm.is_none()
+                && (config.rpc_url.contains("stellar") || config.rpc_url.contains("soroban"))));
+
+    if use_solana {
         handle_solana_diff(&config.rpc_url, &base, &target, threshold, svg).await?;
-    } else if config.rpc_url.contains("starknet") {
+    } else if use_starknet {
         handle_starknet_diff(&config.rpc_url, &base, &target, threshold, svg).await?;
-    } else if config.rpc_url.contains("stellar") || config.rpc_url.contains("soroban") {
+    } else if use_stellar {
         handle_stellar_diff(&config.rpc_url, &base, &target, threshold, svg).await?;
     } else {
         handle_nitro_diff(
@@ -625,8 +694,9 @@ fn generate_generic_diff_svg(args: &GenericDiffArgs) -> Result<()> {
     let pb_svg = spinner("Generating diff flamegraph…");
     let base_norm = TraceParser::normalize_raw(args.base_steps.clone());
     let target_norm = TraceParser::normalize_raw(args.target_steps.clone());
-    let base_stacks = Aggregator::build_collapsed_stacks(&base_norm);
-    let target_stacks = Aggregator::build_collapsed_stacks(&target_norm);
+    let registry = atupa::build_default_registry();
+    let base_stacks = Aggregator::build_collapsed_stacks_with_registry(&base_norm, &registry);
+    let target_stacks = Aggregator::build_collapsed_stacks_with_registry(&target_norm, &registry);
 
     let svg_out = atupa_output::generate_diff_flamegraph(&base_stacks, &target_stacks)
         .context("SVG diff generation failed")?;
@@ -1118,7 +1188,8 @@ fn generate_and_save_svg(
 ) -> Result<String> {
     let pb_svg = spinner("Generating SVG flamegraph…");
     let normalized = TraceParser::normalize_raw(steps.to_vec());
-    let stacks = Aggregator::build_collapsed_stacks(&normalized);
+    let registry = atupa::build_default_registry();
+    let stacks = Aggregator::build_collapsed_stacks_with_registry(&normalized, &registry);
     let svg =
         SvgGenerator::generate_flamegraph(&stacks).context("SVG flamegraph generation failed")?;
 
@@ -1973,7 +2044,8 @@ fn generate_diff_svg(data: &NitroDiffData) -> Result<()> {
         .iter()
         .map(|s| s.to_trace_step())
         .collect();
-    let base_stacks = Aggregator::build_collapsed_stacks(&TraceParser::normalize_raw(base_steps));
+    let registry = atupa::build_default_registry();
+    let base_stacks = Aggregator::build_collapsed_stacks_with_registry(&TraceParser::normalize_raw(base_steps), &registry);
 
     let target_steps: Vec<atupa_core::TraceStep> = data
         .target_report
@@ -1982,7 +2054,7 @@ fn generate_diff_svg(data: &NitroDiffData) -> Result<()> {
         .map(|s| s.to_trace_step())
         .collect();
     let target_stacks =
-        Aggregator::build_collapsed_stacks(&TraceParser::normalize_raw(target_steps));
+        Aggregator::build_collapsed_stacks_with_registry(&TraceParser::normalize_raw(target_steps), &registry);
 
     let svg_content = atupa_output::generate_diff_flamegraph(&base_stacks, &target_stacks)?;
     let out_path = format!(
@@ -2056,12 +2128,22 @@ fn evaluate_thresholds(
 
 // ─── Shared Utilities ─────────────────────────────────────────────────────────
 
-/// Normalise a transaction hash to lowercase 0x-prefixed form.
+/// Normalise a transaction hash or signature.
+/// EVM hashes get lowercased and `0x`-prefixed.
+/// Solana signatures (Base58, >70 chars) are preserved exactly as provided.
 fn normalise_hash(tx: &str) -> String {
     let t = tx.trim();
+    
+    // Solana signatures are Base58 and much longer than standard 64-char hex hashes
+    if t.len() > 70 {
+        return t.to_string();
+    }
+    
     if t.to_lowercase().starts_with("0x") {
         t.to_lowercase()
     } else {
+        // EVM / Starknet typically expect 0x prefix.
+        // If it's exactly 64 chars, we'll prefix it.
         format!("0x{}", t.to_lowercase())
     }
 }

@@ -16,6 +16,15 @@ impl Aggregator {
     /// Processes a stream of `TraceStep` and aggregates them into collapsed call-stacks for visualization.
     #[allow(clippy::collapsible_if)]
     pub fn build_collapsed_stacks(steps: &[TraceStep]) -> Vec<CollapsedStack> {
+        let registry = atupa_adapters::AdapterRegistry::new();
+        Self::build_collapsed_stacks_with_registry(steps, &registry)
+    }
+
+    #[allow(clippy::collapsible_if)]
+    pub fn build_collapsed_stacks_with_registry(
+        steps: &[TraceStep],
+        registry: &atupa_adapters::AdapterRegistry,
+    ) -> Vec<CollapsedStack> {
         debug!(
             "Building collapsed stacks from {} execution steps",
             steps.len()
@@ -30,8 +39,6 @@ impl Aggregator {
             reverted: bool,
             vm_kind: VmKind,
         }
-
-        let registry = atupa_adapters::AdapterRegistry::new();
 
         // Map to aggregate stacks: stack_string -> AggregatedData
         let mut stack_map: HashMap<String, AggregatedData> = HashMap::new();
@@ -391,6 +398,20 @@ mod tests {
 
     #[test]
     fn test_aggregator_memory_selector_aave() {
+        struct MockAaveV3Adapter;
+        impl atupa_adapters::ProtocolAdapter for MockAaveV3Adapter {
+            fn name(&self) -> &str {
+                "Aave v3 / GHO"
+            }
+            fn resolve_label(&self, _address: Option<&str>, selector: Option<&str>) -> Option<String> {
+                if selector == Some("0xab9c4b5d") {
+                    Some("Aave: flashLoan".to_string())
+                } else {
+                    None
+                }
+            }
+        }
+
         let stack = vec![
             "0x0".to_string(), // retLength
             "0x0".to_string(), // retOffset
@@ -418,7 +439,10 @@ mod tests {
             ..Default::default()
         }];
 
-        let stacks = Aggregator::build_collapsed_stacks(&steps);
+        let mut registry = atupa_adapters::AdapterRegistry::empty();
+        registry.register(Box::new(MockAaveV3Adapter));
+
+        let stacks = Aggregator::build_collapsed_stacks_with_registry(&steps, &registry);
         let call_stack = stacks
             .iter()
             .find(|s| s.stack == "CALL;CALL")

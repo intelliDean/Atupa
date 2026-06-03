@@ -82,10 +82,15 @@ publish_crate "atupa-aave" 10
 publish_crate "atupa-lido" 10
 publish_crate "atupa-nitro" 20
 
-# 5. Facade SDK (Depends on adapters)
+# 5. Level 4 - Multi-VM Adapters
+publish_crate "atupa-starknet" 10
+publish_crate "atupa-solana" 10
+publish_crate "atupa-stellar" 10
+
+# 6. Facade SDK (Depends on adapters)
 publish_crate "atupa-sdk" 30
 
-# 6. Final Binary (Depends on everything)
+# 7. Final Binary (Depends on everything)
 echo "📦 Preparing studio assets for atupa binary..."
 if [ -d "studio/dist" ]; then
     rm -rf bin/atupa/dist

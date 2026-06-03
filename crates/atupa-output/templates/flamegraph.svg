@@ -57,16 +57,19 @@
   <text x="124" y="14" class="legend">Starknet Cairo</text>
   <rect x="238" y="8" width="12" height="12" rx="2" class="box-revert" />
   <text x="254" y="14" class="legend">Reverted</text>
+  {% else if has_solana %}
+  <rect x="108" y="8" width="12" height="12" rx="2" class="box-solana" />
+  <text x="124" y="14" class="legend">Solana Program</text>
+  <rect x="238" y="8" width="12" height="12" rx="2" class="box-revert" />
+  <text x="254" y="14" class="legend">Reverted</text>
   {% else if has_stellar %}
   <rect x="108" y="8" width="12" height="12" rx="2" class="box-stellar" />
   <text x="124" y="14" class="legend">Stellar Soroban</text>
   <rect x="238" y="8" width="12" height="12" rx="2" class="box-revert" />
   <text x="254" y="14" class="legend">Reverted</text>
   {% else %}
-  <rect x="108" y="8" width="12" height="12" rx="2" class="box-solana" />
-  <text x="124" y="14" class="legend">Solana Program</text>
-  <rect x="238" y="8" width="12" height="12" rx="2" class="box-revert" />
-  <text x="254" y="14" class="legend">Reverted</text>
+  <rect x="108" y="8" width="12" height="12" rx="2" class="box-revert" />
+  <text x="124" y="14" class="legend">Reverted</text>
   {% endif %}
 
   <!-- Flame bars -->

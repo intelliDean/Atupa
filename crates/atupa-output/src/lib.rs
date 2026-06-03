@@ -14,6 +14,7 @@ struct FlamegraphTemplate {
     height: u32,
     has_wasm: bool,
     has_starknet: bool,
+    has_solana: bool,
     has_stellar: bool,
 }
 
@@ -209,6 +210,7 @@ impl SvgGenerator {
         }
 
         let has_starknet = evm_stacks.iter().any(|s| s.vm_kind == VmKind::Starknet);
+        let has_solana = evm_stacks.iter().any(|s| s.vm_kind == VmKind::Solana);
         let has_stellar = evm_stacks.iter().any(|s| s.vm_kind == VmKind::Stellar);
 
         let height = (current_y + 16.0) as u32;
@@ -218,6 +220,7 @@ impl SvgGenerator {
             height,
             has_wasm,
             has_starknet,
+            has_solana,
             has_stellar,
         };
         Ok(template.render()?)
@@ -252,3 +255,130 @@ impl SvgGenerator {
         stack.stack.split(';').next_back().unwrap_or(&stack.stack)
     }
 }
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use atupa_core::{CollapsedStack, VmKind};
+
+    fn evm_stack() -> CollapsedStack {
+        CollapsedStack {
+            stack: "CALL".to_string(),
+            weight: 21_000,
+            last_pc: Some(0),
+            depth: 1,
+            vm_kind: VmKind::Evm,
+            target_address: None,
+            resolved_label: None,
+            reverted: false,
+        }
+    }
+
+    fn stack_with_vm(vm_kind: VmKind) -> CollapsedStack {
+        CollapsedStack {
+            stack: "OP".to_string(),
+            weight: 1_000,
+            last_pc: Some(0),
+            depth: 1,
+            vm_kind,
+            target_address: None,
+            resolved_label: None,
+            reverted: false,
+        }
+    }
+
+    /// A pure-EVM trace must NOT show the Solana legend swatch.
+    #[test]
+    fn legend_pure_evm_shows_revert_not_solana() {
+        let stacks = vec![evm_stack()];
+        let svg = SvgGenerator::generate_flamegraph(&stacks).expect("SVG generated");
+
+        // The legend rect for EVM appears in the template as: class="box-evm"
+        assert!(
+            svg.contains(r#"class="box-evm""#),
+            "EVM swatch must appear in legend"
+        );
+        // Solana legend rect must NOT be rendered (the CSS rule .box-solana is always
+        // present in <style>, so we check for the rendered <rect class="box-solana">)
+        assert!(
+            !svg.contains(r#"class="box-solana""#),
+            "Solana legend rect must NOT appear for a pure-EVM trace"
+        );
+        // Revert swatch is the secondary legend entry for EVM-only traces
+        assert!(
+            svg.contains(r#"class="box-revert""#),
+            "Revert swatch must appear as secondary legend entry"
+        );
+    }
+
+    /// A Starknet trace shows the Starknet swatch, not Solana.
+    #[test]
+    fn legend_starknet_trace() {
+        let stacks = vec![stack_with_vm(VmKind::Starknet)];
+        let svg = SvgGenerator::generate_flamegraph(&stacks).expect("SVG generated");
+
+        assert!(
+            svg.contains(r#"class="box-starknet""#),
+            "Starknet legend rect must appear"
+        );
+        assert!(
+            !svg.contains(r#"class="box-solana""#),
+            "Solana legend rect must NOT appear"
+        );
+        assert!(
+            !svg.contains(r#"class="box-stellar""#),
+            "Stellar legend rect must NOT appear"
+        );
+    }
+
+    /// A Solana trace shows the Solana swatch.
+    #[test]
+    fn legend_solana_trace() {
+        let stacks = vec![stack_with_vm(VmKind::Solana)];
+        let svg = SvgGenerator::generate_flamegraph(&stacks).expect("SVG generated");
+
+        assert!(
+            svg.contains(r#"class="box-solana""#),
+            "Solana legend rect must appear"
+        );
+        assert!(
+            !svg.contains(r#"class="box-starknet""#),
+            "Starknet legend rect must NOT appear"
+        );
+    }
+
+    /// A Stellar trace shows the Stellar swatch.
+    #[test]
+    fn legend_stellar_trace() {
+        let stacks = vec![stack_with_vm(VmKind::Stellar)];
+        let svg = SvgGenerator::generate_flamegraph(&stacks).expect("SVG generated");
+
+        assert!(
+            svg.contains(r#"class="box-stellar""#),
+            "Stellar legend rect must appear"
+        );
+        assert!(
+            !svg.contains(r#"class="box-solana""#),
+            "Solana legend rect must NOT appear"
+        );
+    }
+
+    /// A Stylus/WASM trace shows the WASM swatch.
+    #[test]
+    fn legend_stylus_trace() {
+        let stacks = vec![stack_with_vm(VmKind::Stylus)];
+        let svg = SvgGenerator::generate_flamegraph(&stacks).expect("SVG generated");
+
+        assert!(
+            svg.contains(r#"class="box-wasm""#),
+            "WASM legend rect must appear"
+        );
+        assert!(
+            !svg.contains(r#"class="box-solana""#),
+            "Solana legend rect must NOT appear"
+        );
+    }
+}
+

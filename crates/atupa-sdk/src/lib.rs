@@ -54,6 +54,15 @@ pub use atupa_solana as solana;
 /// Stellar (Soroban WASM VM) protocol adapter.
 pub use atupa_stellar as stellar;
 
+/// Builds the default adapter registry for the Atupa SDK, pre-loaded with
+/// all supported protocol adapters (Uniswap v4, Aave v3 / GHO, Lido stETH).
+pub fn build_default_registry() -> atupa_adapters::AdapterRegistry {
+    let mut registry = atupa_adapters::AdapterRegistry::new();
+    registry.register(Box::new(atupa_aave::AaveV3Adapter));
+    registry.register(Box::new(atupa_lido::LidoAdapter));
+    registry
+}
+
 // ─── High-level API ───────────────────────────────────────────────────────────
 
 pub use profile::execute_profile;
@@ -72,6 +81,23 @@ pub mod profile {
     use indicatif::{ProgressBar, ProgressStyle};
     use std::{fs, time::Duration};
 
+    /// Controls which VM runtime `execute_profile` uses.
+    /// `None` (default) triggers the heuristic auto-detection based on the
+    /// RPC URL and transaction hash format.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum VmHint {
+        /// Standard EVM / Arbitrum Nitro (EVM + optional Stylus stitching)
+        Evm,
+        /// Force Arbitrum Stylus trace (same as Evm path via NitroClient)
+        Stylus,
+        /// Starknet Cairo VM
+        Starknet,
+        /// Solana Sealevel VM
+        Solana,
+        /// Stellar Soroban WASM VM
+        Stellar,
+    }
+
     /// Fetch (or generate a demo), aggregate, and render an SVG flamegraph for
     /// the given transaction hash.
     ///
@@ -83,8 +109,22 @@ pub mod profile {
         is_demo: bool,
         out: Option<String>,
         etherscan_key: Option<String>,
+        vm_hint: Option<VmHint>,
     ) -> Result<(String, String)> {
         let pb = make_spinner();
+
+        // Determine which VM to use: explicit hint takes priority, then heuristics.
+        #[allow(clippy::match_like_matches_macro)]
+        let use_starknet = matches!(vm_hint, Some(VmHint::Starknet))
+            || (vm_hint.is_none() && (rpc.contains("starknet") || tx.len() > 66));
+        let use_solana = !use_starknet
+            && (matches!(vm_hint, Some(VmHint::Solana))
+                || (vm_hint.is_none() && (rpc.contains("solana") || tx.len() == 44)));
+        let use_stellar = !use_starknet
+            && !use_solana
+            && (matches!(vm_hint, Some(VmHint::Stellar))
+                || (vm_hint.is_none()
+                    && (rpc.contains("stellar") || rpc.contains("soroban") || tx.len() == 64)));
 
         // 1. Fetch ─────────────────────────────────────────────────────────────
         let (mut stacks, network_name) = if is_demo {
@@ -93,9 +133,8 @@ pub mod profile {
         } else {
             pb.set_message("Detecting network and fetching execution trace…");
 
-            // Heuristic-based client selection
-            // In a production version, we would perform a chainId probe or use explicit flags.
-            if rpc.contains("starknet") || tx.len() > 66 {
+            // Hint- or heuristic-based client selection
+            if use_starknet {
                 pb.set_message("Starknet node detected. Fetching Cairo VM trace…");
                 let client = StarknetClient::new(rpc.to_string());
                 let steps = client
@@ -106,7 +145,7 @@ pub mod profile {
                 let normalized = AtupaParser::normalize_raw(steps);
                 let combined = Aggregator::build_collapsed_stacks(&normalized);
                 (combined, "Starknet".to_string())
-            } else if rpc.contains("solana") || tx.len() > 66 || tx.len() == 44 {
+            } else if use_solana {
                 // Solana signatures are base58 and ~44-88 chars
                 pb.set_message("Solana node detected. Reconstructing Sealevel VM trace…");
                 let client = SolanaClient::new(rpc.to_string());
@@ -119,7 +158,7 @@ pub mod profile {
                 let normalized = AtupaParser::normalize_raw(steps);
                 let combined = Aggregator::build_collapsed_stacks(&normalized);
                 (combined, "Solana".to_string())
-            } else if rpc.contains("stellar") || rpc.contains("soroban") || tx.len() == 64 {
+            } else if use_stellar {
                 // Stellar hashes are 64 hex chars
                 pb.set_message("Stellar node detected. Fetching Soroban diagnostic trace…");
                 let client = StellarClient::new(rpc.to_string());
@@ -162,7 +201,8 @@ pub mod profile {
                     report.steps.iter().map(|s| s.to_trace_step()).collect();
 
                 let normalized = AtupaParser::normalize_raw(unified_steps);
-                let mut combined = Aggregator::build_collapsed_stacks(&normalized);
+                let registry = crate::build_default_registry();
+                let mut combined = Aggregator::build_collapsed_stacks_with_registry(&normalized, &registry);
 
                 // Etherscan resolution — only meaningful for EVM steps with an address.
                 pb.set_message("Resolving contract names via Etherscan…");

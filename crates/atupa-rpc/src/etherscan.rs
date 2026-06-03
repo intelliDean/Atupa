@@ -24,41 +24,43 @@ fn cache_path() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".atupa").join("etherscan_cache.json"))
 }
 
-/// Loads the serialized cache from disk. Returns an empty map if the file
-/// doesn't exist or cannot be parsed (non-fatal — we'll just fetch from the API).
-fn load_cache() -> HashMap<String, String> {
+/// Asynchronously loads the serialized cache from disk.
+/// Returns an empty map if the file doesn't exist or cannot be parsed — non-fatal.
+async fn load_cache_async() -> HashMap<String, String> {
     let Some(path) = cache_path() else {
         return HashMap::new();
     };
-    match std::fs::read_to_string(&path) {
+    match tokio::fs::read_to_string(&path).await {
         Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
         Err(_) => HashMap::new(),
     }
 }
 
-/// Flushes the full in-memory cache to disk atomically.
+/// Spawns a background task to flush the cache to disk.
+/// Takes an owned snapshot of the cache so the caller can drop the Mutex lock immediately.
 /// Errors are logged but never propagated — a cache write failure is non-fatal.
-fn flush_cache(cache: &HashMap<String, String>) {
-    let Some(path) = cache_path() else { return };
+fn spawn_flush_cache(snapshot: HashMap<String, String>) {
+    tokio::spawn(async move {
+        let Some(path) = cache_path() else { return };
 
-    // Ensure the parent directory exists
-    if let Some(parent) = path.parent()
-        && let Err(e) = std::fs::create_dir_all(parent)
-    {
-        log::warn!("⚠️  Could not create cache dir {:?}: {}", parent, e);
-        return;
-    }
+        if let Some(parent) = path.parent()
+            && let Err(e) = tokio::fs::create_dir_all(parent).await
+        {
+            log::warn!("⚠️  Could not create cache dir {:?}: {}", parent, e);
+            return;
+        }
 
-    match serde_json::to_string_pretty(cache) {
-        Ok(json) => {
-            if let Err(e) = std::fs::write(&path, json) {
-                log::warn!("⚠️  Could not write Etherscan cache to {:?}: {}", path, e);
+        match serde_json::to_string_pretty(&snapshot) {
+            Ok(json) => {
+                if let Err(e) = tokio::fs::write(&path, json).await {
+                    log::warn!("⚠️  Could not write Etherscan cache to {:?}: {}", path, e);
+                }
+            }
+            Err(e) => {
+                log::warn!("⚠️  Could not serialize Etherscan cache: {}", e);
             }
         }
-        Err(e) => {
-            log::warn!("⚠️  Could not serialize Etherscan cache: {}", e);
-        }
-    }
+    });
 }
 
 /// A lightweight client to resolve EVM addresses into Human-Readable Contract Names.
@@ -80,21 +82,29 @@ impl Default for EtherscanResolver {
 
 impl EtherscanResolver {
     pub fn new(api_key: Option<String>, chain_id: u64) -> Self {
-        let disk_cache = load_cache();
-        let cache_size = disk_cache.len();
-        if cache_size > 0 {
-            log::info!(
-                "📦 Loaded {} Etherscan contract name(s) from disk cache",
-                cache_size
-            );
-        }
+        // Start with an empty in-memory cache; a background task will warm it
+        // from disk without blocking the Tokio executor.
+        let cache = Arc::new(Mutex::new(HashMap::new()));
+        let cache_clone = cache.clone();
+        tokio::spawn(async move {
+            let disk_cache = load_cache_async().await;
+            let cache_size = disk_cache.len();
+            let mut lock = cache_clone.lock().await;
+            *lock = disk_cache;
+            if cache_size > 0 {
+                log::info!(
+                    "📦 Loaded {} Etherscan contract name(s) from disk cache",
+                    cache_size
+                );
+            }
+        });
 
         Self {
             client: Client::builder()
                 .timeout(Duration::from_secs(5))
                 .build()
                 .unwrap_or_default(),
-            cache: Arc::new(Mutex::new(disk_cache)),
+            cache,
             api_key,
             chain_id,
         }
@@ -137,10 +147,13 @@ impl EtherscanResolver {
                         let name = item.contract_name.clone();
                         log::info!("✅ Etherscan resolved {} -> {}", address, name);
 
-                        // Update in-memory cache then flush to disk
+                        // Update in-memory cache, then flush to disk in a background
+                        // task — the Mutex lock is dropped before any I/O begins.
                         let mut cache_lock = self.cache.lock().await;
                         cache_lock.insert(address.to_string(), name.clone());
-                        flush_cache(&cache_lock);
+                        let snapshot = cache_lock.clone();
+                        drop(cache_lock);
+                        spawn_flush_cache(snapshot);
 
                         return Some(name);
                     }
