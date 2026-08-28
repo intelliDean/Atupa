@@ -303,15 +303,12 @@ dependencies = [
 name = "atupa-starknet"
 version = "0.1.1"
 dependencies = [
- "anyhow",
  "atupa-core",
  "atupa-rpc",
- "log",
  "reqwest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]
