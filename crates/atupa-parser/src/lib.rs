@@ -1,45 +1,29 @@
+//! # atupa-parser
+//!
+//! Trace normalization, address/selector decoding, and stack aggregation engine.
+//!
+//! Converts raw RPC debug execution traces into normalized [`atupa_core::TraceStep`]s,
+//! decodes call arguments/selectors from EVM memory, and aggregates linear execution steps
+//! into hierarchical [`atupa_core::CollapsedStack`] profiles for flamegraph visualization.
+//!
+//! ## Modules
+//!
+//! | Module | Contents |
+//! |---|---|
+//! | [`normalize`] | [`Parser`] for converting RPC `structLog`s into [`atupa_core::TraceStep`]s |
+//! | [`decoder`] | Memory selector extraction & target address decoders |
+//! | [`aggregator`] | [`Aggregator`] for collapsing linear steps into tree call-stacks |
+//!
+//! ## Re-exports
+//!
+//! Primary types are re-exported at the crate root.
+
 pub mod aggregator;
+pub mod decoder;
+pub mod normalize;
 
-use atupa_core::{TraceStep, VmKind};
-use atupa_rpc::RawStructLog;
+// ── Flat re-exports ───────────────────────────────────────────────────────────
 
-pub struct Parser;
-
-impl Parser {
-    /// Normalizes a raw Anvil/Geth structLog into our universal TraceStep schema.
-    pub fn normalize(raw_logs: Vec<RawStructLog>) -> Vec<TraceStep> {
-        raw_logs
-            .into_iter()
-            .map(|log| {
-                let reverted = log.error.is_some() || log.op == "REVERT" || log.op == "INVALID";
-                TraceStep {
-                    pc: log.pc,
-                    op: log.op,
-                    gas: log.gas,
-                    gas_cost: log.gas_cost,
-                    depth: log.depth,
-                    stack: log.stack,
-                    memory: log.memory,
-                    error: log.error,
-                    reverted,
-                    vm_kind: VmKind::Evm,
-                }
-            })
-            .collect()
-    }
-
-    /// Pass-through for steps that are already normalized (e.g. the unified
-    /// `UnifiedStep` timeline from `atupa-nitro`). Applies the same revert
-    /// detection logic so the Aggregator sees consistent flags.
-    pub fn normalize_raw(steps: Vec<TraceStep>) -> Vec<TraceStep> {
-        steps
-            .into_iter()
-            .map(|mut step| {
-                if step.error.is_some() || step.op == "REVERT" || step.op == "INVALID" {
-                    step.reverted = true;
-                }
-                step
-            })
-            .collect()
-    }
-}
+pub use aggregator::Aggregator;
+pub use decoder::{extract_memory_selector, extract_target_address};
+pub use normalize::Parser;
