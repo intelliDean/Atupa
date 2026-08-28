@@ -15,7 +15,5 @@ categories = ["development-tools", "cryptography::cryptocurrencies"]
 atupa-core = { workspace = true }
 atupa-adapters = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 anyhow = { workspace = true }
-thiserror = { workspace = true }
 log = { workspace = true }
