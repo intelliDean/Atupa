@@ -238,9 +238,6 @@ dependencies = [
  "anyhow",
  "askama",
  "atupa-core",
- "log",
- "serde",
- "serde_json",
 ]
 
 [[package]]
