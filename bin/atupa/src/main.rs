@@ -2190,7 +2190,7 @@ fn trace_steps_to_report(
             let cost = s.gas_cost as f64;
             total_gas = total_gas.saturating_add(s.gas_cost);
             let category =
-                atupa_core::GasCategory::from_step(&s.op, s.vm_kind.clone());
+                atupa_core::GasCategory::from_step(&s.op, &s.vm_kind);
             *category_costs.entry(category.clone()).or_insert(0.0) += cost;
             atupa_nitro::UnifiedStep {
                 index: i,

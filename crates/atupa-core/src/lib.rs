@@ -1,228 +1,32 @@
+//! # atupa-core
+//!
+//! Foundational types, configuration, and domain models shared across the
+//! entire Atupa workspace.
+//!
+//! ## Modules
+//!
+//! | Module | Contents |
+//! |---|---|
+//! | [`vm`] | [`VmKind`] — identifies the source Virtual Machine |
+//! | [`gas`] | [`GasCategory`] — classifies execution steps by cost driver |
+//! | [`types`] | [`TraceStep`], [`CollapsedStack`], [`HotPath`], [`Profile`], [`ProfileBuilder`] |
+//! | [`diff`] | [`ProtocolDiffReport`], [`DiffRow`] — protocol-level regression comparison |
+//! | [`config`] | [`AtupaConfig`] — multi-source configuration loading |
+//!
+//! ## Re-exports
+//!
+//! All public types are re-exported from the crate root so that downstream
+//! crates can use `atupa_core::TraceStep` etc. without knowing the module layout.
+
 pub mod config;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+pub mod diff;
+pub mod gas;
+pub mod types;
+pub mod vm;
 
-/// Standard EVM Gas Categories for logical grouping of execution costs.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-#[serde(rename_all = "PascalCase")]
-pub enum GasCategory {
-    /// Opcodes like SSTORE
-    StorageWrite,
-    /// Opcodes like SLOAD
-    StorageRead,
-    /// Memory operations (MLOAD, MSTORE, etc.)
-    Memory,
-    /// Cryptographic operations (KECCAK256)
-    Crypto,
-    /// External calls (CALL, DELEGATECALL, etc.)
-    Call,
-    /// Logic and arithmetic
-    Execution,
-    /// Precompiled contract calls
-    Precompile,
-    /// Root execution frame
-    Root,
-    #[default]
-    Other,
-}
+// ── Flat re-exports ───────────────────────────────────────────────────────────
 
-impl GasCategory {
-    pub fn from_step(op: &str, vm: VmKind) -> Self {
-        let op = op.trim();
-        match vm {
-            VmKind::Evm => Self::from_evm(op),
-            VmKind::Stylus => Self::from_stylus(op),
-            VmKind::Starknet => Self::from_starknet(op),
-            _ => Self::Other,
-        }
-    }
-
-    fn from_evm(op: &str) -> Self {
-        match op {
-            "SSTORE" | "TSTORE" => Self::StorageWrite,
-            "SLOAD" | "TLOAD" => Self::StorageRead,
-            "MLOAD" | "MSTORE" | "MSTORE8" | "MCOPY" | "MSIZE" => Self::Memory,
-            "KECCAK256" | "SHA3" => Self::Crypto,
-            "CALL" | "STATICCALL" | "DELEGATECALL" | "CALLCODE" | "CREATE" | "CREATE2"
-            | "RETURN" | "REVERT" | "STOP" | "INVALID" | "SELFDESTRUCT" => Self::Call,
-            // Arithmetic, Logic, Stack, Flow
-            "ADD" | "SUB" | "MUL" | "DIV" | "SDIV" | "MOD" | "SMOD" | "ADDMOD" | "MULMOD"
-            | "EXP" | "SIGNEXTEND" | "LT" | "GT" | "SLT" | "SGT" | "EQ" | "ISZERO" | "AND"
-            | "OR" | "XOR" | "NOT" | "BYTE" | "SHL" | "SHR" | "SAR" | "POP" | "PUSH1" | "PUSH2"
-            | "PUSH3" | "PUSH4" | "PUSH5" | "PUSH6" | "PUSH7" | "PUSH8" | "PUSH9" | "PUSH10"
-            | "PUSH11" | "PUSH12" | "PUSH13" | "PUSH14" | "PUSH15" | "PUSH16" | "PUSH17"
-            | "PUSH18" | "PUSH19" | "PUSH20" | "PUSH21" | "PUSH22" | "PUSH23" | "PUSH24"
-            | "PUSH25" | "PUSH26" | "PUSH27" | "PUSH28" | "PUSH29" | "PUSH30" | "PUSH31"
-            | "PUSH32" | "DUP1" | "DUP2" | "DUP3" | "DUP4" | "DUP5" | "DUP6" | "DUP7" | "DUP8"
-            | "DUP9" | "DUP10" | "DUP11" | "DUP12" | "DUP13" | "DUP14" | "DUP15" | "DUP16"
-            | "SWAP1" | "SWAP2" | "SWAP3" | "SWAP4" | "SWAP5" | "SWAP6" | "SWAP7" | "SWAP8"
-            | "SWAP9" | "SWAP10" | "SWAP11" | "SWAP12" | "SWAP13" | "SWAP14" | "SWAP15"
-            | "SWAP16" | "JUMP" | "JUMPI" | "PC" | "GAS" | "JUMPDEST" => Self::Execution,
-            _ => Self::Other,
-        }
-    }
-
-    fn from_stylus(hostio: &str) -> Self {
-        let n = hostio.to_lowercase();
-        // Specific checks for flush (it's a write operation)
-        if n.contains("flush") || n.contains("storage_store") {
-            Self::StorageWrite
-        } else if n.contains("storage_load") || n.contains("storage_cache") {
-            Self::StorageRead
-        } else if n.contains("keccak") || n.contains("sha2") {
-            Self::Crypto
-        } else if n.contains("call") || n.contains("create") {
-            Self::Call
-        } else if n.contains("memory") || n.contains("args") || n.contains("return") {
-            Self::Memory
-        } else if n.contains("msg")
-            || n.contains("block")
-            || n.contains("tx")
-            || n.contains("evm")
-            || n.contains("user")
-        {
-            Self::Execution
-        } else {
-            Self::Other
-        }
-    }
-
-    fn from_starknet(op: &str) -> Self {
-        let op = op.to_lowercase();
-        if op.contains("storage_read") {
-            Self::StorageRead
-        } else if op.contains("storage_write") {
-            Self::StorageWrite
-        } else if op.contains("keccak") || op.contains("pedersen") || op.contains("poseidon") {
-            Self::Crypto
-        } else if op.contains("call") || op.contains("deploy") || op.contains("invoke") {
-            Self::Call
-        } else if op.contains("range_check") || op.contains("bitwise") || op.contains("steps") {
-            Self::Execution
-        } else {
-            Self::Other
-        }
-    }
-}
-
-/// A single step in the EVM execution trace (equivalent to structLog).
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct TraceStep {
-    pub pc: u64,
-    pub op: String,
-    pub gas: u64,
-    pub gas_cost: u64,
-    pub depth: u16,
-    pub stack: Option<Vec<String>>,
-    pub memory: Option<Vec<String>>,
-    #[serde(default)]
-    pub error: Option<String>,
-    #[serde(default)]
-    pub reverted: bool,
-    #[serde(default)]
-    pub vm_kind: VmKind,
-}
-
-/// Which virtual machine produced these execution steps.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-pub enum VmKind {
-    #[default]
-    Evm,
-    Stylus,
-    Starknet,
-    Solana,
-    Stellar,
-}
-
-/// A single collapsed stack entry for aggregation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CollapsedStack {
-    pub stack: String,
-    pub weight: u64,
-    pub last_pc: Option<u64>,
-    /// Maximum call depth seen for steps in this stack.
-    #[serde(default)]
-    pub depth: u16,
-    /// The VM that produced this collapsed stack.
-    #[serde(default)]
-    pub vm_kind: VmKind,
-    #[serde(default)]
-    pub target_address: Option<String>,
-    #[serde(default)]
-    pub resolved_label: Option<String>,
-    #[serde(default)]
-    pub reverted: bool,
-}
-
-/// A collapsed execution path with aggregated gas costs.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HotPath {
-    pub stack: String,
-    pub gas: u64,
-    pub percentage: f64,
-    pub category: GasCategory,
-}
-
-/// The final report generated by Atupa.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Profile {
-    pub version: String,
-    pub transaction_hash: String,
-    pub total_gas: u64,
-    pub categories: HashMap<GasCategory, u64>,
-    pub hot_paths: Vec<HotPath>,
-    pub generated_at: String,
-}
-
-impl Profile {
-    pub fn new(tx_hash: String) -> Self {
-        Self {
-            version: env!("CARGO_PKG_VERSION").to_string(),
-            transaction_hash: tx_hash,
-            total_gas: 0,
-            categories: HashMap::new(),
-            hot_paths: Vec::new(),
-            generated_at: chrono::Utc::now().to_rfc3339(),
-        }
-    }
-}
-
-// ─── Protocol Diff Structures ────────────────────────────────────────────────
-
-/// A field-by-field delta between two protocol executions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProtocolDiffReport {
-    pub protocol: String,
-    pub rows: Vec<DiffRow>,
-}
-
-/// A single comparable metric row for protocol-level diffing.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiffRow {
-    pub metric: String,
-    pub base: f64,
-    pub target: f64,
-    pub delta: f64,
-    pub pct: f64,
-    /// true = a larger value is bad (gas, reads, calls), false = larger is better
-    pub higher_is_worse: bool,
-}
-
-impl DiffRow {
-    pub fn new(metric: &str, base: f64, target: f64, higher_is_worse: bool) -> Self {
-        let delta = target - base;
-        let pct = if base > 0.0 {
-            delta / base * 100.0
-        } else {
-            0.0
-        };
-        Self {
-            metric: metric.to_string(),
-            base,
-            target,
-            delta,
-            pct,
-            higher_is_worse,
-        }
-    }
-}
+pub use diff::{DiffRow, ProtocolDiffReport};
+pub use gas::GasCategory;
+pub use types::{CollapsedStack, HotPath, Profile, ProfileBuilder, TraceStep};
+pub use vm::{ParseVmKindError, VmKind};

@@ -266,7 +266,7 @@ impl MixedTraceStitcher {
 
             total_evm_gas = total_evm_gas.saturating_add(gas_cost);
 
-            let category = GasCategory::from_step(&log.op, VmKind::Evm.into());
+            let category = GasCategory::from_step(&log.op, &CoreVmKind::Evm);
 
             // Extract target address for CALL/CREATE
             let mut target_address = None;
@@ -325,7 +325,7 @@ impl MixedTraceStitcher {
                 window_host_io_count += 1;
 
                 let cost_equiv = host_io.ink_as_gas_equiv();
-                let category = GasCategory::from_step(&host_io.name, VmKind::Stylus.into());
+                let category = GasCategory::from_step(&host_io.name, &CoreVmKind::Stylus);
                 steps.push(UnifiedStep {
                     index,
                     vm: VmKind::Stylus,
@@ -358,7 +358,7 @@ impl MixedTraceStitcher {
             total_stylus_ink = total_stylus_ink.saturating_add(ink_used);
 
             let cost_equiv = host_io.ink_as_gas_equiv();
-            let category = GasCategory::from_step(&host_io.name, VmKind::Stylus.into());
+            let category = GasCategory::from_step(&host_io.name, &CoreVmKind::Stylus);
             steps.push(UnifiedStep {
                 index,
                 vm: VmKind::Stylus,
