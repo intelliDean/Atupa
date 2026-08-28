@@ -1,6 +1,6 @@
 //! # Atupa
 //!
-//! **Unified Ethereum Execution Profiler** — the top-level façade crate for the
+//! **Unified Multi-VM Blockchain Execution Profiler** — the top-level façade crate for the
 //! Atupa SDK. This crate re-exports every layer of the suite so that external
 //! integrators only need to depend on a single crate:
 //!
@@ -13,368 +13,65 @@
 //!
 //! ```text
 //! atupa (this façade)
-//! ├── atupa-core      → Types: TraceStep, CollapsedStack, GasCategory
+//! ├── atupa-core      → Types: TraceStep, CollapsedStack, GasCategory, VmKind
 //! ├── atupa-rpc       → JSON-RPC client (EthClient, EtherscanResolver)
-//! ├── atupa-parser    → StructLog → TraceStep normalization
-//! ├── atupa-adapters  → ProtocolAdapter trait
-//! ├── atupa-output    → SvgGenerator flamegraphs
-//! ├── atupa-aave      → AaveDeepTracer, GHO metrics
-//! └── atupa-lido      → LidoDeepTracer, stETH / wstETH tracing
+//! ├── atupa-parser    → TraceStep normalization and Call Stack Aggregation
+//! ├── atupa-adapters  → ProtocolAdapter trait (Uniswap v4, ERC-20, etc.)
+//! ├── atupa-output    → SvgGenerator & differential flamegraph renderers
+//! ├── atupa-aave      → AaveDeepTracer, GHO supply metrics
+//! ├── atupa-lido      → LidoDeepTracer, stETH / wstETH tracing
+//! ├── atupa-nitro     → Mixed EVM + Arbitrum Stylus WASM dual-tracing
+//! ├── atupa-starknet  → Starknet Cairo VM trace flattening
+//! ├── atupa-solana    → Solana Sealevel instruction log stitcher
+//! └── atupa-stellar   → Stellar Soroban WASM diagnostic event parser
 //! ```
+//!
+//! ## Modules
+//!
+//! | Module | Contents |
+//! |---|---|
+//! | [`registry`] | [`build_default_registry`] pre-configured with all protocol adapters |
+//! | [`profile`] | [`execute_profile`] and [`VmHint`] high-level execution engine |
+
+pub mod profile;
+pub mod registry;
 
 // ─── Public re-exports ────────────────────────────────────────────────────────
 
 /// Core types shared across the entire Atupa suite.
 pub use atupa_core as core;
 
-/// JSON-RPC transport layer: EthClient, EtherscanResolver, RawStructLog.
+/// JSON-RPC transport layer: `EthClient`, `EtherscanResolver`, `RawStructLog`.
 pub use atupa_rpc as rpc;
 
-/// Trace normalization and aggregation.
+/// Trace normalization and stack aggregation engine.
 pub use atupa_parser as parser;
 
-/// ProtocolAdapter trait for pluggable DeFi recognizers.
+/// `ProtocolAdapter` trait and `AdapterRegistry` for pluggable protocol recognizers.
 pub use atupa_adapters as adapters;
 
-/// SVG flamegraph renderer.
+/// SVG flamegraph and diff visualization renderer.
 pub use atupa_output as output;
 
-/// Aave v3 + GHO protocol adapter.
+/// Aave v3 + GHO protocol tracer.
 pub use atupa_aave as aave;
 
-/// Lido stETH protocol adapter.
+/// Lido stETH protocol tracer.
 pub use atupa_lido as lido;
 
-/// Starknet (Cairo VM) protocol adapter.
+/// Arbitrum Nitro & Stylus WASM dual-tracing client.
+pub use atupa_nitro as nitro;
+
+/// Starknet (Cairo VM) protocol tracer.
 pub use atupa_starknet as starknet;
 
-/// Solana (Sealevel VM) protocol adapter.
+/// Solana (Sealevel VM) protocol tracer.
 pub use atupa_solana as solana;
 
-/// Stellar (Soroban WASM VM) protocol adapter.
+/// Stellar (Soroban WASM VM) protocol tracer.
 pub use atupa_stellar as stellar;
 
-/// Builds the default adapter registry for the Atupa SDK, pre-loaded with
-/// all supported protocol adapters (Uniswap v4, Aave v3 / GHO, Lido stETH).
-pub fn build_default_registry() -> atupa_adapters::AdapterRegistry {
-    let mut registry = atupa_adapters::AdapterRegistry::new();
-    registry.register(Box::new(atupa_aave::AaveV3Adapter));
-    registry.register(Box::new(atupa_lido::LidoAdapter));
-    registry
-}
+// ─── High-level API Re-exports ────────────────────────────────────────────────
 
-// ─── High-level API ───────────────────────────────────────────────────────────
-
-pub use profile::execute_profile;
-
-/// High-level profile execution logic, usable independently from the CLI.
-pub mod profile {
-    use anyhow::Result;
-    use atupa_core::{CollapsedStack, VmKind};
-    use atupa_nitro::{NitroClient, VmKind as NitroVmKind};
-    use atupa_output::SvgGenerator;
-    use atupa_parser::{Parser as AtupaParser, aggregator::Aggregator};
-    use atupa_rpc::etherscan::EtherscanResolver;
-    use atupa_solana::{SolanaClient, SolanaLogStitcher};
-    use atupa_starknet::StarknetClient;
-    use atupa_stellar::StellarClient;
-    use indicatif::{ProgressBar, ProgressStyle};
-    use std::{fs, time::Duration};
-
-    /// Controls which VM runtime `execute_profile` uses.
-    /// `None` (default) triggers the heuristic auto-detection based on the
-    /// RPC URL and transaction hash format.
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub enum VmHint {
-        /// Standard EVM / Arbitrum Nitro (EVM + optional Stylus stitching)
-        Evm,
-        /// Force Arbitrum Stylus trace (same as Evm path via NitroClient)
-        Stylus,
-        /// Starknet Cairo VM
-        Starknet,
-        /// Solana Sealevel VM
-        Solana,
-        /// Stellar Soroban WASM VM
-        Stellar,
-    }
-
-    /// Fetch (or generate a demo), aggregate, and render an SVG flamegraph for
-    /// the given transaction hash.
-    ///
-    /// This is the same logic that `atupa profile` runs — exposed here so it can
-    /// be called programmatically by other tools or tests.
-    pub async fn execute_profile(
-        tx: &str,
-        rpc: &str,
-        is_demo: bool,
-        out: Option<String>,
-        etherscan_key: Option<String>,
-        vm_hint: Option<VmHint>,
-    ) -> Result<(String, String)> {
-        let pb = make_spinner();
-
-        // Determine which VM to use: explicit hint takes priority, then heuristics.
-        #[allow(clippy::match_like_matches_macro)]
-        let use_starknet = matches!(vm_hint, Some(VmHint::Starknet))
-            || (vm_hint.is_none() && (rpc.contains("starknet") || tx.len() > 66));
-        let use_solana = !use_starknet
-            && (matches!(vm_hint, Some(VmHint::Solana))
-                || (vm_hint.is_none() && (rpc.contains("solana") || tx.len() == 44)));
-        let use_stellar = !use_starknet
-            && !use_solana
-            && (matches!(vm_hint, Some(VmHint::Stellar))
-                || (vm_hint.is_none()
-                    && (rpc.contains("stellar") || rpc.contains("soroban") || tx.len() == 64)));
-
-        // 1. Fetch ─────────────────────────────────────────────────────────────
-        let (mut stacks, network_name) = if is_demo {
-            pb.set_message("Generating offline demo trace…");
-            (demo_stacks(), "Demo".to_string())
-        } else {
-            pb.set_message("Detecting network and fetching execution trace…");
-
-            // Hint- or heuristic-based client selection
-            if use_starknet {
-                pb.set_message("Starknet node detected. Fetching Cairo VM trace…");
-                let client = StarknetClient::new(rpc.to_string());
-                let steps = client
-                    .profile_transaction(tx)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Starknet RPC error: {e}"))?;
-
-                let normalized = AtupaParser::normalize_raw(steps);
-                let combined = Aggregator::build_collapsed_stacks(&normalized);
-                (combined, "Starknet".to_string())
-            } else if use_solana {
-                // Solana signatures are base58 and ~44-88 chars
-                pb.set_message("Solana node detected. Reconstructing Sealevel VM trace…");
-                let client = SolanaClient::new(rpc.to_string());
-                let logs = client
-                    .get_transaction_logs(tx)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Solana RPC error: {e}"))?;
-
-                let steps = SolanaLogStitcher::parse_logs(&logs);
-                let normalized = AtupaParser::normalize_raw(steps);
-                let combined = Aggregator::build_collapsed_stacks(&normalized);
-                (combined, "Solana".to_string())
-            } else if use_stellar {
-                // Stellar hashes are 64 hex chars
-                pb.set_message("Stellar node detected. Fetching Soroban diagnostic trace…");
-                let client = StellarClient::new(rpc.to_string());
-                let steps = client
-                    .get_transaction_trace(tx)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Stellar RPC error: {e}"))?;
-
-                let normalized = AtupaParser::normalize_raw(steps);
-                let combined = Aggregator::build_collapsed_stacks(&normalized);
-                (combined, "Stellar".to_string())
-            } else {
-                let client = NitroClient::new(rpc.to_string());
-                let report =
-                    tokio::time::timeout(Duration::from_secs(30), client.trace_transaction(tx))
-                        .await
-                        .map_err(|_| {
-                            anyhow::anyhow!(
-                                "RPC timed out after 30s — is the node reachable at {rpc}?"
-                            )
-                        })?
-                        .map_err(|e| anyhow::anyhow!("RPC error: {e}"))?;
-
-                let network = get_network_name(report.chain_id);
-                let evm_count = report
-                    .steps
-                    .iter()
-                    .filter(|s| s.vm == NitroVmKind::Evm)
-                    .count();
-                let wasm_count = report
-                    .steps
-                    .iter()
-                    .filter(|s| s.vm == NitroVmKind::Stylus)
-                    .count();
-                pb.set_message(format!(
-                    "Processing {evm_count} EVM + {wasm_count} Stylus steps from {network}…"
-                ));
-
-                let unified_steps: Vec<atupa_core::TraceStep> =
-                    report.steps.iter().map(|s| s.to_trace_step()).collect();
-
-                let normalized = AtupaParser::normalize_raw(unified_steps);
-                let registry = crate::build_default_registry();
-                let mut combined = Aggregator::build_collapsed_stacks_with_registry(&normalized, &registry);
-
-                // Etherscan resolution — only meaningful for EVM steps with an address.
-                pb.set_message("Resolving contract names via Etherscan…");
-                let resolver = EtherscanResolver::new(etherscan_key, report.chain_id);
-                for stack in &mut combined {
-                    if stack.vm_kind == VmKind::Evm
-                        && let Some(addr) = &stack.target_address
-                        && let Some(name) = resolver.resolve_contract_name(addr).await
-                    {
-                        stack.target_address = Some(name);
-                    }
-                }
-                (combined, network)
-            }
-        };
-
-        // Sort EVM stacks descending by weight; Stylus stacks come after
-        let evm_end = stacks.partition_point(|s| s.vm_kind == VmKind::Evm);
-        stacks[..evm_end].sort_by_key(|b| std::cmp::Reverse(b.weight));
-
-        // 2. Render + save ─────────────────────────────────────────────────────
-        pb.set_message("Generating SVG flamegraph…");
-        let svg = SvgGenerator::generate_flamegraph(&stacks)?;
-        let out_path = out.unwrap_or_else(|| {
-            if is_demo {
-                "profile_demo.svg".to_string()
-            } else {
-                // Shorten to first 10 hex chars after 0x
-                let short = tx.trim_start_matches("0x").get(..10).unwrap_or(tx);
-                format!("profile_{short}.svg")
-            }
-        });
-        fs::write(&out_path, svg)?;
-
-        pb.finish_with_message(format!("✔ Profile saved → {out_path}"));
-        Ok((out_path, network_name))
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    fn make_spinner() -> ProgressBar {
-        let pb = ProgressBar::new_spinner();
-        pb.set_style(
-            ProgressStyle::with_template("{spinner:.cyan} {msg}")
-                .unwrap()
-                .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
-        );
-        pb.enable_steady_tick(Duration::from_millis(80));
-        pb
-    }
-
-    fn get_network_name(chain_id: u64) -> String {
-        match chain_id {
-            1 => "Ethereum Mainnet".to_string(),
-            11155111 => "Sepolia Testnet".to_string(),
-            17000 => "Holesky Testnet".to_string(),
-            42161 => "Arbitrum One".to_string(),
-            42170 => "Arbitrum Nova".to_string(),
-            421614 => "Arbitrum Sepolia".to_string(),
-            8453 => "Base Mainnet".to_string(),
-            84532 => "Base Sepolia".to_string(),
-            10 => "Optimism".to_string(),
-            11155420 => "Optimism Sepolia".to_string(),
-            137 => "Polygon POS".to_string(),
-            1337 | 31337 => "Local Devnet".to_string(),
-            412346 => "Nitro Local Devnet".to_string(),
-            0 => "Unknown Network".to_string(),
-            id => format!("Chain ID: {id}"),
-        }
-    }
-
-    /// A rich offline demo trace showcasing nested calls, reverts, and simulated Stylus steps.
-    fn demo_stacks() -> Vec<CollapsedStack> {
-        vec![
-            // ── Root frame ops (depth 1) ────────────────────────────────────
-            CollapsedStack {
-                stack: "CALL".to_string(),
-                weight: 21_000,
-                last_pc: Some(0),
-                depth: 1,
-                vm_kind: VmKind::Evm,
-                target_address: None,
-                resolved_label: Some("Root CALL (21,000 gas)".to_string()),
-                reverted: false,
-            },
-            CollapsedStack {
-                stack: "CALL;SLOAD".to_string(),
-                weight: 2_100,
-                last_pc: Some(10),
-                depth: 2,
-                vm_kind: VmKind::Evm,
-                target_address: None,
-                resolved_label: Some("Storage Read (2,100 gas)".to_string()),
-                reverted: false,
-            },
-            CollapsedStack {
-                stack: "CALL;SSTORE".to_string(),
-                weight: 20_000,
-                last_pc: Some(14),
-                depth: 2,
-                vm_kind: VmKind::Evm,
-                target_address: None,
-                resolved_label: Some("Storage Write (20,000 gas)".to_string()),
-                reverted: false,
-            },
-            // ── Nested sub-call (depth 2 → 3) ──────────────────────────────
-            CollapsedStack {
-                stack: "CALL;CALL;KECCAK256".to_string(),
-                weight: 30,
-                last_pc: Some(20),
-                depth: 3,
-                vm_kind: VmKind::Evm,
-                target_address: Some("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string()),
-                resolved_label: Some("USDC: KECCAK256 (30 gas)".to_string()),
-                reverted: false,
-            },
-            CollapsedStack {
-                stack: "CALL;CALL;SLOAD".to_string(),
-                weight: 2_100,
-                last_pc: Some(24),
-                depth: 3,
-                vm_kind: VmKind::Evm,
-                target_address: None,
-                resolved_label: Some("Nested SLOAD (2,100 gas)".to_string()),
-                reverted: false,
-            },
-            // ── Reverted sub-call (depth 2) ─────────────────────────────────
-            CollapsedStack {
-                stack: "CALL;REVERT".to_string(),
-                weight: 5_000,
-                last_pc: Some(40),
-                depth: 2,
-                vm_kind: VmKind::Evm,
-                target_address: None,
-                resolved_label: Some("REVERTED sub-call (5,000 gas)".to_string()),
-                reverted: true,
-            },
-            // ── Simulated Stylus WASM steps ─────────────────────────────────
-            CollapsedStack {
-                stack: "storage_load_bytes32".to_string(),
-                weight: 421,
-                last_pc: None,
-                depth: 1,
-                vm_kind: VmKind::Stylus,
-                target_address: None,
-                resolved_label: Some(
-                    "storage_load_bytes32 (4,215 ink → 0.42 gas-equiv)".to_string(),
-                ),
-                reverted: false,
-            },
-            CollapsedStack {
-                stack: "storage_flush_cache".to_string(),
-                weight: 4_001,
-                last_pc: None,
-                depth: 1,
-                vm_kind: VmKind::Stylus,
-                target_address: None,
-                resolved_label: Some(
-                    "storage_flush_cache (40,010 ink → 4.00 gas-equiv)".to_string(),
-                ),
-                reverted: false,
-            },
-            CollapsedStack {
-                stack: "native_keccak256".to_string(),
-                weight: 4,
-                last_pc: None,
-                depth: 1,
-                vm_kind: VmKind::Stylus,
-                target_address: None,
-                resolved_label: Some("native_keccak256 (36 ink → 0.004 gas-equiv)".to_string()),
-                reverted: false,
-            },
-        ]
-    }
-}
+pub use profile::{VmHint, execute_profile};
+pub use registry::build_default_registry;
