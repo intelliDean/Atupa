@@ -214,9 +214,7 @@ dependencies = [
  "anyhow",
  "atupa-adapters",
  "atupa-core",
- "log",
  "serde",
- "serde_json",
 ]
 
 [[package]]
