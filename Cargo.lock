@@ -221,7 +221,6 @@ dependencies = [
 name = "atupa-nitro"
 version = "0.1.1"
 dependencies = [
- "anyhow",
  "atupa-core",
  "atupa-rpc",
  "log",
