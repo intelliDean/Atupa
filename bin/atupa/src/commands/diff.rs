@@ -2,7 +2,6 @@
 
 use anyhow::{Context, Result};
 use colored::*;
-use std::path::Path;
 
 use atupa_aave::AaveDeepTracer;
 use atupa_core::config::AtupaConfig;
@@ -189,11 +188,14 @@ fn print_generic_diff_summary(args: &GenericDiffArgs, data: &GenericDiffData) {
 
 fn evaluate_generic_thresholds(args: &GenericDiffArgs, data: &GenericDiffData) -> Vec<String> {
     let mut failures = Vec::new();
-    if let Some(t) = args.threshold.filter(|&t| data.cost_pct > t) {
-        failures.push(format!(
-            "Total {} increased by {:.1}% (limit: {:.1}%)",
-            args.unit_name, data.cost_pct, t
-        ));
+    if let Some(t) = args.threshold
+        && let Some(err) = crate::thresholds::DiffConfig::evaluate_simple_threshold(
+            args.unit_name,
+            data.cost_pct,
+            t,
+        )
+    {
+        failures.push(err);
     }
     failures
 }
@@ -831,54 +833,25 @@ fn evaluate_thresholds(
     diff_config: Option<String>,
 ) -> Vec<String> {
     let mut failures = Vec::new();
-    let config_toml = if let Some(path) = diff_config {
-        AtupaConfigToml::load(Path::new(&path)).ok()
-    } else {
-        AtupaConfigToml::auto_load()
-    };
+    let config_toml = AtupaConfigToml::resolve(diff_config.as_deref());
 
     if let Some(t) = threshold {
-        if data.total_gas_pct > t {
-            failures.push(format!(
-                "Total Gas increased by {:.1}% (limit: {:.1}%)",
-                data.total_gas_pct, t
-            ));
+        if let Some(err) = crate::thresholds::DiffConfig::evaluate_simple_threshold(
+            "Gas",
+            data.total_gas_pct,
+            t,
+        ) {
+            failures.push(err);
         }
     } else if let Some(ref cfg) = config_toml
         && let Some(diff_cfg) = &cfg.diff
     {
-        if let Some(max_total) = diff_cfg.max_total_gas_increase_percent
-            && data.total_gas_pct > max_total
-        {
-            failures.push(format!(
-                "Total Gas increased by {:.1}% (limit: {:.1}%)",
-                data.total_gas_pct, max_total
-            ));
-        }
-        if let Some(max_exec) = diff_cfg.max_execution_gas_increase_percent
-            && data.unified_pct > max_exec
-        {
-            failures.push(format!(
-                "Execution Gas increased by {:.1}% (limit: {:.1}%)",
-                data.unified_pct, max_exec
-            ));
-        }
-        if let Some(max_evm) = diff_cfg.max_evm_steps_increase
-            && data.evm_delta > max_evm as f64
-        {
-            failures.push(format!(
-                "EVM Steps increased by {:.0} (limit: {})",
-                data.evm_delta, max_evm
-            ));
-        }
-        if let Some(max_stylus) = diff_cfg.max_stylus_calls_increase
-            && data.stylus_delta > max_stylus as f64
-        {
-            failures.push(format!(
-                "Stylus Calls increased by {:.0} (limit: {})",
-                data.stylus_delta, max_stylus
-            ));
-        }
+        failures.extend(diff_cfg.evaluate_nitro(
+            data.total_gas_pct,
+            data.unified_pct,
+            data.evm_delta,
+            data.stylus_delta,
+        ));
     }
     failures
 }
