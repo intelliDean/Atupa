@@ -16,9 +16,6 @@ atupa-core = { workspace = true }
 atupa-rpc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-anyhow = { workspace = true }
 thiserror = { workspace = true }
-log = { workspace = true }
 reqwest = { workspace = true }
-tokio = { workspace = true }
 regex = "1.11.1"
