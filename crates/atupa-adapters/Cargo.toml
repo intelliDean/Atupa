@@ -13,7 +13,3 @@ categories = { workspace = true }
 
 [dependencies]
 atupa-core = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-anyhow = { workspace = true }
-log = { workspace = true }
