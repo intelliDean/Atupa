@@ -2,7 +2,7 @@
   <img src="assets/logo.png" width="350" alt="Atupa Logo">
 </p>
 
-<h1 align="center">🏮 Atupa</h1>
+<h1 align="center">ATUPA</h1>
 
 <p align="center">
   <strong>Universal Multi-VM Execution Profiler &amp; Visual Analysis Suite</strong>
