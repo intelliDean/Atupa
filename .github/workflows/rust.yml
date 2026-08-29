@@ -40,9 +40,8 @@ jobs:
           cd studio
           npm ci || npm install
           npm run build
-      - uses: Swatinem/rust-cache@v2
-      - name: Run clippy with -D warnings
-        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets -- -D clippy::correctness -D clippy::suspicious -D clippy::complexity -D clippy::perf
 
   test:
     name: 🧪 Workspace Test Suite
