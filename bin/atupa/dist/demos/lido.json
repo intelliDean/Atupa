@@ -1,0 +1,82 @@
+{
+  "tx_hash": "0x1fca898234be45a198c234509172462839401726485019284756102938475619",
+  "steps": [
+    {
+      "index": 0,
+      "vm": "Evm",
+      "label": "Lido::submit(referral=0x0) [Stake 32 ETH]",
+      "gas_cost": 52000,
+      "cost_equiv": 52000,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Call",
+      "target_address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+    },
+    {
+      "index": 1,
+      "vm": "Evm",
+      "label": "StakingRouter::getDepositLimit",
+      "gas_cost": 3100,
+      "cost_equiv": 3100,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "StorageRead",
+      "target_address": "0xFdDf38947aFB06167083462ea50162A7733ba05c"
+    },
+    {
+      "index": 2,
+      "vm": "Evm",
+      "label": "stETH::mintShares (Rebase Balance Calculated)",
+      "gas_cost": 28400,
+      "cost_equiv": 28400,
+      "depth": 2,
+      "is_vm_boundary": true,
+      "category": "StorageWrite",
+      "target_address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+    },
+    {
+      "index": 3,
+      "vm": "Evm",
+      "label": "LidoOracle::handleConsensusReport",
+      "gas_cost": 41200,
+      "cost_equiv": 41200,
+      "depth": 2,
+      "is_vm_boundary": true,
+      "category": "Call",
+      "target_address": "0x442af784A788A5bd6F42A01Ebe1ED6480e6107b4"
+    },
+    {
+      "index": 4,
+      "vm": "Evm",
+      "label": "WithdrawalQueueERC721::requestWithdrawalsWithPermit",
+      "gas_cost": 34600,
+      "cost_equiv": 34600,
+      "depth": 2,
+      "is_vm_boundary": true,
+      "category": "StorageWrite",
+      "target_address": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1"
+    }
+  ],
+  "total_evm_gas": 159300,
+  "total_stylus_ink": 0,
+  "total_stylus_gas_equiv": 0,
+  "total_unified_cost": 159300,
+  "vm_boundary_count": 3,
+  "category_costs": {
+    "StorageWrite": 63000,
+    "StorageRead": 3100,
+    "Call": 93200,
+    "Crypto": 0,
+    "Memory": 0,
+    "Execution": 0,
+    "Precompile": 0,
+    "Root": 0,
+    "Other": 0
+  },
+  "resolved_names": {
+    "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84": "Lido: stETH Token",
+    "0xFdDf38947aFB06167083462ea50162A7733ba05c": "Lido Staking Router",
+    "0x442af784A788A5bd6F42A01Ebe1ED6480e6107b4": "Lido Oracle",
+    "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1": "Lido: Withdrawal Queue NFT"
+  }
+}

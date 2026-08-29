@@ -52,7 +52,6 @@ stylus-*.json
 # Atupa Studio build output
 studio/dist/
 studio/node_modules/
-bin/atupa/dist/
 
 # Local artifacts
 artifacts/

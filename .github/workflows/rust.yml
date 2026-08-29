@@ -32,15 +32,15 @@ jobs:
           components: clippy
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: 'studio/package-lock.json'
-      - uses: Swatinem/rust-cache@v2
       - name: Build Studio Frontend
         run: |
           cd studio
-          npm install
+          npm ci || npm install
           npm run build
+      - uses: Swatinem/rust-cache@v2
       - name: Run clippy with -D warnings
         run: cargo clippy --workspace --all-targets -- -D warnings
 
@@ -52,15 +52,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: 'studio/package-lock.json'
-      - uses: Swatinem/rust-cache@v2
       - name: Build Studio Frontend
         run: |
           cd studio
-          npm install
+          npm ci || npm install
           npm run build
+      - uses: Swatinem/rust-cache@v2
       - name: Workspace Check
         run: cargo check --workspace
       - name: Run all workspace tests

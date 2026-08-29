@@ -1,0 +1,128 @@
+{
+  "tx_hash": "5Z9mJkQp7rN2vX8yW1cE4uT6hY3aB8dF5gH7jK9mN2vX",
+  "steps": [
+    {
+      "index": 0,
+      "vm": "Solana",
+      "label": "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "gas_cost": 150,
+      "cost_equiv": 150,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    },
+    {
+      "index": 1,
+      "vm": "Solana",
+      "label": "SetComputeUnitLimit(200000)",
+      "gas_cost": 150,
+      "cost_equiv": 150,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    },
+    {
+      "index": 2,
+      "vm": "Solana",
+      "label": "Program 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 (Raydium Swap) invoke [1]",
+      "gas_cost": 4500,
+      "cost_equiv": 4500,
+      "depth": 1,
+      "is_vm_boundary": true,
+      "category": "Call",
+      "target_address": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
+    },
+    {
+      "index": 3,
+      "vm": "Solana",
+      "label": "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA (SPL Token) invoke [2]",
+      "gas_cost": 3200,
+      "cost_equiv": 3200,
+      "depth": 2,
+      "is_vm_boundary": true,
+      "category": "Call",
+      "target_address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    },
+    {
+      "index": 4,
+      "vm": "Solana",
+      "label": "TransferChecked: 1,500.00 USDC",
+      "gas_cost": 4120,
+      "cost_equiv": 4120,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "StorageWrite"
+    },
+    {
+      "index": 5,
+      "vm": "Solana",
+      "label": "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+      "gas_cost": 500,
+      "cost_equiv": 500,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    },
+    {
+      "index": 6,
+      "vm": "Solana",
+      "label": "AMM Pool Invariant Calculation",
+      "gas_cost": 12850,
+      "cost_equiv": 12850,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Crypto"
+    },
+    {
+      "index": 7,
+      "vm": "Solana",
+      "label": "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA (Mint Output) invoke [2]",
+      "gas_cost": 3100,
+      "cost_equiv": 3100,
+      "depth": 2,
+      "is_vm_boundary": true,
+      "category": "Call",
+      "target_address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    },
+    {
+      "index": 8,
+      "vm": "Solana",
+      "label": "TransferChecked: 0.45 SOL",
+      "gas_cost": 4050,
+      "cost_equiv": 4050,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "StorageWrite"
+    },
+    {
+      "index": 9,
+      "vm": "Solana",
+      "label": "Program 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 success",
+      "gas_cost": 620,
+      "cost_equiv": 620,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    }
+  ],
+  "total_evm_gas": 0,
+  "total_stylus_ink": 0,
+  "total_stylus_gas_equiv": 0,
+  "total_unified_cost": 33240,
+  "vm_boundary_count": 3,
+  "category_costs": {
+    "StorageWrite": 8170,
+    "StorageRead": 0,
+    "Call": 10800,
+    "Crypto": 12850,
+    "Memory": 0,
+    "Execution": 1420,
+    "Precompile": 0,
+    "Root": 0,
+    "Other": 0
+  },
+  "resolved_names": {
+    "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8": "Raydium Liquidity Pool v4",
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA": "SPL Token Program"
+  }
+}

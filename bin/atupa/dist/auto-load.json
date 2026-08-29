@@ -1,0 +1,137 @@
+{
+  "tx_hash": "0x8a923fc41b0294e75618b76a0293847562019485726194857261948572619485",
+  "steps": [
+    {
+      "index": 0,
+      "vm": "Evm",
+      "label": "CALL (Entrypoint)",
+      "gas_cost": 21000,
+      "cost_equiv": 21000,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Call",
+      "target_address": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
+    },
+    {
+      "index": 1,
+      "vm": "Evm",
+      "label": "PUSH4 0x38ed1739",
+      "gas_cost": 3,
+      "cost_equiv": 3,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    },
+    {
+      "index": 2,
+      "vm": "Evm",
+      "label": "SLOAD",
+      "gas_cost": 2100,
+      "cost_equiv": 2100,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "StorageRead"
+    },
+    {
+      "index": 3,
+      "vm": "Evm",
+      "label": "STATICCALL",
+      "gas_cost": 2600,
+      "cost_equiv": 2600,
+      "depth": 2,
+      "is_vm_boundary": true,
+      "category": "Call",
+      "target_address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+    },
+    {
+      "index": 4,
+      "vm": "Stylus",
+      "label": "stylus:msg_sender",
+      "gas_cost": 0,
+      "cost_equiv": 420.5,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    },
+    {
+      "index": 5,
+      "vm": "Stylus",
+      "label": "stylus:storage_load_bytes32",
+      "gas_cost": 0,
+      "cost_equiv": 1250.0,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "StorageRead"
+    },
+    {
+      "index": 6,
+      "vm": "Stylus",
+      "label": "stylus:native_keccak256",
+      "gas_cost": 0,
+      "cost_equiv": 680.0,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "Crypto"
+    },
+    {
+      "index": 7,
+      "vm": "Stylus",
+      "label": "stylus:storage_flush_cache",
+      "gas_cost": 0,
+      "cost_equiv": 5400.0,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "StorageWrite"
+    },
+    {
+      "index": 8,
+      "vm": "Evm",
+      "label": "SSTORE",
+      "gas_cost": 20000,
+      "cost_equiv": 20000,
+      "depth": 1,
+      "is_vm_boundary": true,
+      "category": "StorageWrite"
+    },
+    {
+      "index": 9,
+      "vm": "Evm",
+      "label": "LOG2",
+      "gas_cost": 1875,
+      "cost_equiv": 1875,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    },
+    {
+      "index": 10,
+      "vm": "Evm",
+      "label": "RETURN",
+      "gas_cost": 0,
+      "cost_equiv": 0,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    }
+  ],
+  "total_evm_gas": 47578,
+  "total_stylus_ink": 7750500,
+  "total_stylus_gas_equiv": 7750.5,
+  "total_unified_cost": 55328.5,
+  "vm_boundary_count": 2,
+  "category_costs": {
+    "StorageWrite": 25400,
+    "StorageRead": 3350,
+    "Call": 23600,
+    "Crypto": 680,
+    "Memory": 0,
+    "Execution": 2298.5,
+    "Precompile": 0,
+    "Root": 0,
+    "Other": 0
+  },
+  "resolved_names": {
+    "0x742d35Cc6634C0532925a3b844Bc454e4438f44e": "StylusVault",
+    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2": "WETH9"
+  }
+}

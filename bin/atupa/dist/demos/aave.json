@@ -1,0 +1,91 @@
+{
+  "tx_hash": "0x39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80746201948",
+  "steps": [
+    {
+      "index": 0,
+      "vm": "Evm",
+      "label": "AaveV3::Pool.supply(asset=USDC, amount=100,000)",
+      "gas_cost": 45000,
+      "cost_equiv": 45000,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Call",
+      "target_address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2"
+    },
+    {
+      "index": 1,
+      "vm": "Evm",
+      "label": "ReserveLogic::updateState (LiquidityIndex & VariableBorrowIndex)",
+      "gas_cost": 18200,
+      "cost_equiv": 18200,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "StorageWrite"
+    },
+    {
+      "index": 2,
+      "vm": "Evm",
+      "label": "ValidationLogic::validateSupply",
+      "gas_cost": 4600,
+      "cost_equiv": 4600,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "StorageRead"
+    },
+    {
+      "index": 3,
+      "vm": "Evm",
+      "label": "aUSDC::mint (ScaledBalance Updated)",
+      "gas_cost": 22100,
+      "cost_equiv": 22100,
+      "depth": 2,
+      "is_vm_boundary": true,
+      "category": "StorageWrite",
+      "target_address": "0x98C23E9d8f34FEFb1B72F6d102F7573986B0C043"
+    },
+    {
+      "index": 4,
+      "vm": "Evm",
+      "label": "GHOFlashMinter::flashLoan(amount=500,000 GHO)",
+      "gas_cost": 38400,
+      "cost_equiv": 38400,
+      "depth": 2,
+      "is_vm_boundary": true,
+      "category": "Call",
+      "target_address": "0x40be3B02376E62C2666323497d50B6e4bE13fDE8"
+    },
+    {
+      "index": 5,
+      "vm": "Evm",
+      "label": "AaveOracle::getAssetPrice(USDC)",
+      "gas_cost": 2400,
+      "cost_equiv": 2400,
+      "depth": 3,
+      "is_vm_boundary": false,
+      "category": "StorageRead",
+      "target_address": "0x54586bE62E3c3580375aE3723C145253060Ca0C2"
+    }
+  ],
+  "total_evm_gas": 130700,
+  "total_stylus_ink": 0,
+  "total_stylus_gas_equiv": 0,
+  "total_unified_cost": 130700,
+  "vm_boundary_count": 2,
+  "category_costs": {
+    "StorageWrite": 40300,
+    "StorageRead": 7000,
+    "Call": 83400,
+    "Crypto": 0,
+    "Memory": 0,
+    "Execution": 0,
+    "Precompile": 0,
+    "Root": 0,
+    "Other": 0
+  },
+  "resolved_names": {
+    "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2": "Aave v3 Pool (Ethereum)",
+    "0x98C23E9d8f34FEFb1B72F6d102F7573986B0C043": "aEthUSDC Token",
+    "0x40be3B02376E62C2666323497d50B6e4bE13fDE8": "GHO FlashMinter",
+    "0x54586bE62E3c3580375aE3723C145253060Ca0C2": "Aave Oracle"
+  }
+}
