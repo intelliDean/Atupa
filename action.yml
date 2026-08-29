@@ -1,9 +1,9 @@
 name: 'Atupa Gas Regression Check'
 description: |
-  Automated gas regression detection for Ethereum & Arbitrum Stylus transactions.
-  Runs atupa diff between two transactions, uploads an SVG flamegraph artifact,
+  Automated multi-VM gas regression detection for EVM, Arbitrum Stylus, Solana, Starknet, and Stellar.
+  Runs `atupa diff` between two transactions, uploads SVG flamegraph and JSON artifacts,
   and posts a sticky Markdown report to the Pull Request.
-author: 'One Block Ltd'
+author: 'One Block'
 branding:
   icon: 'zap'
   color: 'orange'
@@ -12,10 +12,10 @@ branding:
 
 inputs:
   base_tx:
-    description: 'Baseline transaction hash (e.g. last commit on main)'
+    description: 'Baseline transaction hash or signature (e.g. last commit on main)'
     required: true
   target_tx:
-    description: 'Target transaction hash (e.g. current PR branch)'
+    description: 'Target transaction hash or signature (e.g. current PR branch)'
     required: true
   rpc_url:
     description: 'RPC endpoint for the target network'
@@ -23,6 +23,10 @@ inputs:
     default: 'http://localhost:8545'
   protocol:
     description: 'Optional: protocol-specific deep diff (aave | lido)'
+    required: false
+    default: ''
+  vm:
+    description: 'Explicit VM target runtime (evm | stylus | starknet | solana | stellar)'
     required: false
     default: ''
   threshold:
@@ -65,17 +69,17 @@ runs:
   using: 'composite'
   steps:
 
-    # 1. Source-aware binary setup (stolen & improved from Stylus-Trace)
-    #    - If we are INSIDE the Atupa repo, build from source and cache.
-    #    - If we are in a CONSUMER repo, install from crates.io.
+    # 1. Source-aware binary setup
+    #    - If inside the Atupa repository, build from source and cache.
+    #    - If in a consumer repository, install from crates.io.
     - name: Setup Atupa Binary
       shell: bash
       run: |
         if [ -f "${{ github.workspace }}/bin/atupa/Cargo.toml" ]; then
-          echo "🏠 Running inside Atupa repo — building from source…"
+          echo "🏠 Running inside Atupa repository — building from source…"
           if [ -d "${{ github.workspace }}/studio" ]; then
             echo "🎨 Building Atupa Studio frontend…"
-            cd studio && npm install && npm run build && cd ..
+            cd "${{ github.workspace }}/studio" && npm install && npm run build && cd "${{ github.workspace }}"
           fi
           cargo build --release -p atupa
           echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
@@ -94,6 +98,11 @@ runs:
         PROTO_FLAG=""
         if [ -n "${{ inputs.protocol }}" ]; then
           PROTO_FLAG="--protocol ${{ inputs.protocol }}"
+        fi
+
+        VM_FLAG=""
+        if [ -n "${{ inputs.vm }}" ]; then
+          VM_FLAG="--vm ${{ inputs.vm }}"
         fi
 
         THRESHOLD_FLAG=""
@@ -119,21 +128,22 @@ runs:
           --markdown \
           --svg \
           $PROTO_FLAG \
+          $VM_FLAG \
           $THRESHOLD_FLAG \
           $CONFIG_FLAG \
           $JSON_FLAG && REGRESSION=false || REGRESSION=true
 
         # Discover output paths
-        BASE_SHORT="${{ inputs.base_tx }}"
-        TARGET_SHORT="${{ inputs.target_tx }}"
-        MD_PATH="artifacts/diff/${BASE_SHORT:0:10}_vs_${TARGET_SHORT:0:10}.md"
-        SVG_PATH="artifacts/diff/${BASE_SHORT:0:10}_vs_${TARGET_SHORT:0:10}.svg"
+        BASE_CLEAN="${{ inputs.base_tx }}"
+        TARGET_CLEAN="${{ inputs.target_tx }}"
+        MD_PATH="artifacts/diff/${BASE_CLEAN:0:10}_vs_${TARGET_CLEAN:0:10}.md"
+        SVG_PATH="artifacts/diff/${BASE_CLEAN:0:10}_vs_${TARGET_CLEAN:0:10}.svg"
 
         echo "md_path=${MD_PATH}"      >> $GITHUB_OUTPUT
         echo "svg_path=${SVG_PATH}"    >> $GITHUB_OUTPUT
         echo "regression_detected=${REGRESSION}" >> $GITHUB_OUTPUT
 
-    # 3. Upload SVG flamegraph as a workflow artifact (link appears in PR checks tab)
+    # 3. Upload SVG flamegraph as a workflow artifact
     - name: Upload SVG Flamegraph
       if: inputs.upload_svg == 'true' && always()
       uses: actions/upload-artifact@v4
@@ -143,17 +153,17 @@ runs:
         if-no-files-found: warn
         retention-days: 30
 
-    # 3.5 Upload JSON Reports for Atupa Studio
-    - name: Upload JSON Reports
+    # 3.5 Upload JSON and Diff Artifacts for Atupa Studio
+    - name: Upload Trace & Diff Artifacts
       if: inputs.upload_json == 'true' && always()
       uses: actions/upload-artifact@v4
       with:
-        name: atupa-reports-${{ inputs.base_tx != '' && inputs.base_tx || 'base' }}
-        path: artifacts/reports/
+        name: atupa-artifacts-${{ inputs.base_tx != '' && inputs.base_tx || 'base' }}
+        path: artifacts/
         if-no-files-found: warn
         retention-days: 30
 
-    # 4. Post sticky PR comment (updates in-place on every new push to PR)
+    # 4. Post sticky PR comment (updates in-place on every push to PR)
     - name: Post Sticky PR Comment
       if: inputs.post_comment == 'true' && github.event_name == 'pull_request' && always()
       continue-on-error: true
@@ -162,12 +172,12 @@ runs:
         header: atupa-gas-diff
         path: ${{ steps.diff.outputs.md_path }}
 
-    # 5. Finally: fail the job if a regression was detected
+    # 5. Enforce regression gate
     - name: Enforce Regression Gate
       shell: bash
       run: |
         if [ "${{ steps.diff.outputs.regression_detected }}" = "true" ]; then
-          echo "❌ Atupa detected a gas regression. See the PR comment for details."
+          echo "❌ Atupa detected a gas regression exceeding configured limits. See the PR comment for details."
           exit 1
         fi
         echo "✅ No gas regressions detected."

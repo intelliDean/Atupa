@@ -10,11 +10,11 @@
 #   6. Fails CI if any threshold in atupa.toml is exceeded
 #
 # REQUIRED SECRETS (in repo Settings → Secrets):
-#   ATUPA_RPC_URL  — Optional: override Anvil with a real mainnet fork RPC
+#   ATUPA_RPC_URL  — Optional: override Anvil with a real RPC endpoint
 #
-# REQUIRED REPO VARIABLES:
-#   PROFILE_SCRIPT — relative path to a forge/cast script that outputs a TX hash
-#                    to stdout (default: script/ProfileScript.s.sol)
+# REPO VARIABLES (optional):
+#   PROFILE_SCRIPT — relative path to a forge/cast script (default: script/ProfileScript.s.sol)
+#   ATUPA_PROTOCOL — optional protocol adapter (aave | lido)
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: ⛽ Atupa Gas Regression
@@ -22,14 +22,19 @@ name: ⛽ Atupa Gas Regression
 on:
   pull_request:
     branches: [ main ]
-  # Allow manual trigger for debugging
   workflow_dispatch:
     inputs:
       base_tx:
-        description: 'Override base transaction hash'
+        description: 'Override base transaction hash / signature'
         required: false
       target_tx:
-        description: 'Override target transaction hash'
+        description: 'Override target transaction hash / signature'
+        required: false
+      protocol:
+        description: 'Optional protocol deep diff (aave | lido)'
+        required: false
+      vm:
+        description: 'Explicit VM runtime (evm | stylus | starknet | solana | stellar)'
         required: false
 
 permissions:
@@ -38,7 +43,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  # Use Anvil by default; override with a real RPC via secret for mainnet-fork
   RPC_URL: ${{ secrets.ATUPA_RPC_URL || 'http://127.0.0.1:8545' }}
   ANVIL_PORT: 8545
   ANVIL_MNEMONIC: 'test test test test test test test test test test test junk'
@@ -78,7 +82,6 @@ jobs:
             --steps-tracing \
             --silent &
           echo "ANVIL_PID=$!" >> $GITHUB_ENV
-          # Wait for Anvil to be ready
           for i in $(seq 1 20); do
             cast block-number --rpc-url http://127.0.0.1:${{ env.ANVIL_PORT }} &>/dev/null && break
             sleep 0.5
@@ -94,7 +97,6 @@ jobs:
           PROFILE_SCRIPT="${{ vars.PROFILE_SCRIPT || 'script/ProfileScript.s.sol' }}"
 
           if [ -f "$PROFILE_SCRIPT" ]; then
-            # Forge deployment path: run script, capture TX hash from stdout
             TX_HASH=$(forge script "$PROFILE_SCRIPT" \
               --rpc-url http://127.0.0.1:${{ env.ANVIL_PORT }} \
               --private-key $PRIVATE_KEY \
@@ -102,7 +104,6 @@ jobs:
               --json 2>/dev/null \
               | jq -r '.receipts[-1].transactionHash' 2>/dev/null)
           else
-            # Fallback: Use a simple cast send to a known deployed contract
             echo "⚠️  No PROFILE_SCRIPT found. Sending dummy ETH transfer for baseline."
             TX_HASH=$(cast send \
               --rpc-url http://127.0.0.1:${{ env.ANVIL_PORT }} \
@@ -140,7 +141,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: atupa-ci-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -197,10 +197,9 @@ jobs:
   diff:
     name: 🏮 Atupa Gas Diff
     runs-on: ubuntu-latest
-    # Support manual override of hashes via workflow_dispatch
     needs: [ baseline, target ]
     permissions:
-      pull-requests: write   # Required for posting PR comments
+      pull-requests: write
 
     steps:
       - name: Checkout PR branch
@@ -213,7 +212,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: atupa-ci-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
-
 
       - name: Install Foundry (for Anvil)
         uses: foundry-rs/foundry-toolchain@v1
@@ -245,16 +243,19 @@ jobs:
           echo "  Base:   $BASE"
           echo "  Target: $TARGET"
 
-      # Use the Atupa composite action (the action.yml we just created)
+      # Execute Atupa composite action
       - name: Run Atupa Gas Diff
         uses: ./
         with:
           base_tx:     ${{ steps.hashes.outputs.base }}
           target_tx:   ${{ steps.hashes.outputs.target }}
           rpc_url:     'http://127.0.0.1:${{ env.ANVIL_PORT }}'
+          protocol:    ${{ github.event.inputs.protocol || vars.ATUPA_PROTOCOL || '' }}
+          vm:          ${{ github.event.inputs.vm || '' }}
           config:      'atupa.toml'
           post_comment: 'true'
           upload_svg:   'true'
+          upload_json:  'true'
 
       - name: Stop Anvil
         if: always()

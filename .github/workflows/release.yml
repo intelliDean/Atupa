@@ -2,8 +2,9 @@
 # Atupa Release — Automated Binary Compilation & Publishing
 #
 # Triggered when a new version tag (v*) is pushed.
-# Performs a cross-platform matrix build (Linux, macOS, Windows), 
-# bundles the Studio frontend into the binary, and creates a GitHub Release.
+# Performs a cross-platform matrix build (Linux, macOS, Windows),
+# bundles the Studio frontend into the binary, generates SHA-256 checksums,
+# and creates a GitHub Release before publishing crates in order.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: 🚀 Release
@@ -107,6 +108,7 @@ jobs:
           cd target/${{ matrix.target }}/release
           tar czf ../../../${{ matrix.asset_name }} atupa
           cd ../../../
+          sha256sum ${{ matrix.asset_name }} > ${{ matrix.asset_name }}.sha256
 
       - name: Package Binary (Windows)
         if: runner.os == 'Windows'
@@ -115,12 +117,16 @@ jobs:
           cd target/${{ matrix.target }}/release
           Compress-Archive -Path atupa.exe -DestinationPath ../../../${{ matrix.asset_name }}
           cd ../../../
+          $hash = (Get-FileHash -Path ${{ matrix.asset_name }} -Algorithm SHA256).Hash.ToLower()
+          "$hash  ${{ matrix.asset_name }}" | Out-File -FilePath "${{ matrix.asset_name }}.sha256" -Encoding ascii
 
       # 🚀 Upload to the release created in Phase 1
       - name: Upload Asset to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset_name }}
+          files: |
+            ${{ matrix.asset_name }}
+            ${{ matrix.asset_name }}.sha256
           tag_name: ${{ github.ref_name }}
 
   # ── Phase 3: Publish to Crates.io ──────────────────────────────────────────
@@ -159,4 +165,5 @@ jobs:
             echo "⚠️  CRATES_IO_TOKEN not found. Skipping publish step."
             exit 0
           fi
+          chmod +x ./publish.sh
           ./publish.sh
