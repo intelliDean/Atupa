@@ -16,10 +16,7 @@ pub struct SolanaClient {
 impl SolanaClient {
     /// Creates a new [`SolanaClient`] pointing to the specified Solana RPC endpoint.
     pub fn new(rpc_url: impl Into<String>) -> Self {
-        Self {
-            rpc_url: rpc_url.into(),
-            client: Client::new(),
-        }
+        Self { rpc_url: rpc_url.into(), client: Client::new() }
     }
 
     /// Returns the target RPC URL.
@@ -47,10 +44,7 @@ impl SolanaClient {
 
         if let Some(error) = response.get("error") {
             return Err(SolanaError::Rpc(RpcError::Node(
-                error["message"]
-                    .as_str()
-                    .unwrap_or("Unknown RPC error")
-                    .to_string(),
+                error["message"].as_str().unwrap_or("Unknown RPC error").to_string(),
             )));
         }
 

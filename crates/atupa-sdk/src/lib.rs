@@ -73,5 +73,5 @@ pub use atupa_stellar as stellar;
 
 // ─── High-level API Re-exports ────────────────────────────────────────────────
 
-pub use profile::{VmHint, execute_profile};
+pub use profile::{execute_profile, VmHint};
 pub use registry::build_default_registry;

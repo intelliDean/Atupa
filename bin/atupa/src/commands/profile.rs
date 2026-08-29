@@ -3,9 +3,9 @@
 use anyhow::{Context, Result};
 use colored::*;
 
-use atupa_core::config::AtupaConfig;
 use crate::cli::VmTarget;
 use crate::utils::{divider, resolve_artifact_path};
+use atupa_core::config::AtupaConfig;
 
 /// Executes the `profile` command, generating an SVG flamegraph.
 pub async fn cmd_profile(
@@ -41,18 +41,10 @@ pub async fn cmd_profile(
     .context("Profile command failed")?;
 
     eprintln!();
-    eprintln!(
-        "  {} ({})",
-        "PROFILE COMPLETE".bold().underline(),
-        network.cyan()
-    );
+    eprintln!("  {} ({})", "PROFILE COMPLETE".bold().underline(), network.cyan());
     let div = divider(40);
     eprintln!("{div}");
-    eprintln!(
-        "  {:<24} {}",
-        "SVG saved to:".bold(),
-        out_path.green().bold()
-    );
+    eprintln!("  {:<24} {}", "SVG saved to:".bold(), out_path.green().bold());
     eprintln!("{div}");
     Ok(())
 }

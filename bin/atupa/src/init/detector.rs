@@ -87,7 +87,8 @@ mod tests {
 
     #[test]
     fn detect_project_at_mock_paths() {
-        let temp_dir = std::env::temp_dir().join(format!("atupa_test_detect_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("atupa_test_detect_{}", std::process::id()));
         let _ = fs::create_dir_all(&temp_dir);
 
         // Initially unknown
@@ -112,7 +113,8 @@ mod tests {
 
     #[test]
     fn detect_protocol_at_finds_aave_and_lido() {
-        let temp_dir = std::env::temp_dir().join(format!("atupa_test_proto_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("atupa_test_proto_{}", std::process::id()));
         let _ = fs::create_dir_all(&temp_dir);
 
         fs::write(temp_dir.join("Cargo.toml"), "[dependencies]\naave-v3-core = \"1.0\"").unwrap();

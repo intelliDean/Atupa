@@ -60,10 +60,7 @@ mod tests {
     fn resolves_contract_address() {
         let adapter = LidoAdapter;
         assert_eq!(
-            adapter.resolve_label(
-                Some("0xae7ab96520de3a18e5e111b5eaab095312d7fe84"),
-                None
-            ),
+            adapter.resolve_label(Some("0xae7ab96520de3a18e5e111b5eaab095312d7fe84"), None),
             Some("Lido::stETH (Lido Core)".to_string())
         );
     }

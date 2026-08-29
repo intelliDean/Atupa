@@ -19,10 +19,7 @@ pub fn resolve_artifact_path(
     ext: &str,
 ) -> String {
     let filename = path.unwrap_or_else(|| {
-        let short = tx_hash
-            .trim_start_matches("0x")
-            .get(..10)
-            .unwrap_or(tx_hash);
+        let short = tx_hash.trim_start_matches("0x").get(..10).unwrap_or(tx_hash);
         match ext {
             "json" => format!("report_{short}.json"),
             "svg" => format!("profile_{short}.svg"),
@@ -31,11 +28,7 @@ pub fn resolve_artifact_path(
     });
 
     let pb = PathBuf::from(&filename);
-    if pb
-        .parent()
-        .map(|p| p.as_os_str().is_empty())
-        .unwrap_or(true)
-    {
+    if pb.parent().map(|p| p.as_os_str().is_empty()).unwrap_or(true) {
         let dir = format!("artifacts/{category}");
         let _ = std::fs::create_dir_all(&dir);
         format!("{dir}/{filename}")
@@ -174,16 +167,11 @@ mod tests {
 
     #[test]
     fn normalise_hash_handles_evm_and_solana() {
-        assert_eq!(
-            normalise_hash("0xABCDEF123456"),
-            "0xabcdef123456"
-        );
-        assert_eq!(
-            normalise_hash("ABCDEF123456"),
-            "0xabcdef123456"
-        );
+        assert_eq!(normalise_hash("0xABCDEF123456"), "0xabcdef123456");
+        assert_eq!(normalise_hash("ABCDEF123456"), "0xabcdef123456");
         // Solana signature: Base58 string > 70 chars
-        let solana_sig = "5VERv8NMvzbJMEdV8xnrLkEaWRtSz9CosKDYj7WNXTip3MrTKEjWAFAwDxj61GbyGhBsp89uNpnv1Fs31";
+        let solana_sig =
+            "5VERv8NMvzbJMEdV8xnrLkEaWRtSz9CosKDYj7WNXTip3MrTKEjWAFAwDxj61GbyGhBsp89uNpnv1Fs31";
         assert_eq!(normalise_hash(solana_sig), solana_sig);
     }
 
@@ -200,7 +188,12 @@ mod tests {
         let path = resolve_artifact_path(None, "capture", "0x1234567890abcdef", "json");
         assert!(path.contains("artifacts/capture/report_1234567890.json"));
 
-        let custom = resolve_artifact_path(Some("/tmp/custom_report.json".to_string()), "capture", "0x1234", "json");
+        let custom = resolve_artifact_path(
+            Some("/tmp/custom_report.json".to_string()),
+            "capture",
+            "0x1234",
+            "json",
+        );
         assert_eq!(custom, "/tmp/custom_report.json");
     }
 
@@ -261,4 +254,3 @@ mod tests {
         assert!(!step.reverted);
     }
 }
-

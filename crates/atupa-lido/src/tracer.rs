@@ -14,9 +14,7 @@ pub struct LidoDeepTracer {
 impl LidoDeepTracer {
     /// Creates a new [`LidoDeepTracer`].
     pub fn new() -> Self {
-        Self {
-            adapter: LidoAdapter,
-        }
+        Self { adapter: LidoAdapter }
     }
 
     /// Analyze a sequence of execution trace steps for Lido-specific patterns.
@@ -58,12 +56,7 @@ impl LidoDeepTracer {
 fn build_diff_rows(base: &LidoReport, target: &LidoReport) -> Vec<DiffRow> {
     vec![
         DiffRow::new("Total Gas", base.total_gas as f64, target.total_gas as f64, true),
-        DiffRow::new(
-            "Storage Reads",
-            base.storage_reads as f64,
-            target.storage_reads as f64,
-            true,
-        ),
+        DiffRow::new("Storage Reads", base.storage_reads as f64, target.storage_reads as f64, true),
         DiffRow::new(
             "Storage Writes",
             base.storage_writes as f64,
@@ -100,12 +93,7 @@ fn build_diff_rows(base: &LidoReport, target: &LidoReport) -> Vec<DiffRow> {
             target.withdrawal_claims as f64,
             true,
         ),
-        DiffRow::new(
-            "Wrapped Ops",
-            base.wrapped_ops as f64,
-            target.wrapped_ops as f64,
-            true,
-        ),
+        DiffRow::new("Wrapped Ops", base.wrapped_ops as f64, target.wrapped_ops as f64, true),
     ]
 }
 
@@ -167,17 +155,10 @@ mod tests {
     fn diff_reports_identifies_regression() {
         let tracer = LidoDeepTracer::new();
         let base = vec![TraceStep::evm("SSTORE", 20_000)];
-        let target = vec![
-            TraceStep::evm("SSTORE", 20_000),
-            TraceStep::evm("SSTORE", 20_000),
-        ];
+        let target = vec![TraceStep::evm("SSTORE", 20_000), TraceStep::evm("SSTORE", 20_000)];
 
         let report = tracer.diff_reports("0xbase", &base, "0xtarget", &target).unwrap();
-        let write_row = report
-            .rows
-            .iter()
-            .find(|r| r.metric == "Storage Writes")
-            .unwrap();
+        let write_row = report.rows.iter().find(|r| r.metric == "Storage Writes").unwrap();
         assert!(write_row.is_regression());
     }
 }

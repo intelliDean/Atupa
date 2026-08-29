@@ -130,11 +130,7 @@ impl LiquidationAccumulator {
             self.oracle_calls += 1;
         }
 
-        self.labeled_calls.push(LabeledCall {
-            depth: step.depth,
-            label,
-            gas_cost: step.gas_cost,
-        });
+        self.labeled_calls.push(LabeledCall { depth: step.depth, label, gas_cost: step.gas_cost });
     }
 
     /// Consume the accumulator and produce the final [`LiquidationReport`].

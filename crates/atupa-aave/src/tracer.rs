@@ -102,18 +102,8 @@ fn build_diff_rows(
             target.external_calls as f64,
             true,
         ),
-        DiffRow::new(
-            "Oracle Calls",
-            base.oracle_calls as f64,
-            target.oracle_calls as f64,
-            true,
-        ),
-        DiffRow::new(
-            "Max Call Depth",
-            base.max_depth as f64,
-            target.max_depth as f64,
-            true,
-        ),
+        DiffRow::new("Oracle Calls", base.oracle_calls as f64, target.oracle_calls as f64, true),
+        DiffRow::new("Max Call Depth", base.max_depth as f64, target.max_depth as f64, true),
         DiffRow::new(
             "Liq. Efficiency",
             base.liquidation_efficiency,
@@ -236,16 +226,9 @@ mod tests {
     fn diff_detects_storage_write_regression() {
         let tracer = AaveDeepTracer::new();
         let base = vec![TraceStep::evm("SSTORE", 20_000)];
-        let target = vec![
-            TraceStep::evm("SSTORE", 20_000),
-            TraceStep::evm("SSTORE", 20_000),
-        ];
+        let target = vec![TraceStep::evm("SSTORE", 20_000), TraceStep::evm("SSTORE", 20_000)];
         let report = tracer.diff_reports("0xbase", &base, "0xtarget", &target).unwrap();
-        let write_row = report
-            .rows
-            .iter()
-            .find(|r| r.metric == "Storage Writes (SSTORE)")
-            .unwrap();
+        let write_row = report.rows.iter().find(|r| r.metric == "Storage Writes (SSTORE)").unwrap();
         assert!(write_row.is_regression());
     }
 }

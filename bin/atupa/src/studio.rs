@@ -1,8 +1,8 @@
 use axum::{
-    Router,
-    http::{StatusCode, Uri, header},
+    http::{header, StatusCode, Uri},
     response::{Html, IntoResponse, Response},
     routing::get,
+    Router,
 };
 use rust_embed::RustEmbed;
 use std::net::SocketAddr;
@@ -18,9 +18,7 @@ pub struct StudioServer {
 
 impl StudioServer {
     pub fn new(report_json: Option<String>) -> Self {
-        Self {
-            report_json: Arc::new(report_json),
-        }
+        Self { report_json: Arc::new(report_json) }
     }
 
     pub async fn start(self, port: u16) -> anyhow::Result<()> {

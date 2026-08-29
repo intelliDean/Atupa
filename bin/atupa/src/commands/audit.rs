@@ -4,8 +4,8 @@ use anyhow::{Context, Result};
 use colored::*;
 
 use atupa_aave::AaveDeepTracer;
-use atupa_core::TraceStep;
 use atupa_core::config::AtupaConfig;
+use atupa_core::TraceStep;
 use atupa_lido::LidoDeepTracer;
 use atupa_nitro::{NitroClient, StitchedReport, VmKind};
 use atupa_rpc::EthClient;
@@ -21,12 +21,7 @@ pub async fn cmd_audit(config: &AtupaConfig, tx: &str, protocol: Protocol) -> Re
         Protocol::Lido => "Lido stETH",
     };
 
-    eprintln!(
-        "{} {} audit for {}",
-        "→".bold(),
-        label.yellow().bold(),
-        tx.cyan()
-    );
+    eprintln!("{} {} audit for {}", "→".bold(), label.yellow().bold(), tx.cyan());
     eprintln!("{} {}\n", "→ Endpoint:".bold(), config.rpc_url.dimmed());
 
     let eth_client = EthClient::new(config.rpc_url.clone());
@@ -64,9 +59,8 @@ pub async fn cmd_audit(config: &AtupaConfig, tx: &str, protocol: Protocol) -> Re
                 .collect();
 
             let tracer = AaveDeepTracer::new();
-            let liq = tracer
-                .analyze_liquidation(&tx, &trace_steps)
-                .context("Aave adapter failed")?;
+            let liq =
+                tracer.analyze_liquidation(&tx, &trace_steps).context("Aave adapter failed")?;
 
             pb2.finish_with_message(format!("{} Aave v3 adapter complete.", "✔".green().bold()));
             eprintln!();
@@ -84,14 +78,9 @@ pub async fn cmd_audit(config: &AtupaConfig, tx: &str, protocol: Protocol) -> Re
                 .collect();
 
             let tracer = LidoDeepTracer::new();
-            let res = tracer
-                .analyze_staking(&tx, &trace_steps)
-                .context("Lido adapter failed")?;
+            let res = tracer.analyze_staking(&tx, &trace_steps).context("Lido adapter failed")?;
 
-            pb2.finish_with_message(format!(
-                "{} Lido stETH adapter complete.",
-                "✔".green().bold()
-            ));
+            pb2.finish_with_message(format!("{} Lido stETH adapter complete.", "✔".green().bold()));
             eprintln!();
             print_lido_report(&res, &report, top_level_selector.as_deref());
         }
@@ -112,11 +101,7 @@ fn print_aave_report(
     if let Some(sel) = top_selector {
         let fn_name = atupa_aave::AaveV3Adapter::resolve_selector_label(sel)
             .unwrap_or_else(|| format!("unknown ({sel})"));
-        println!(
-            "  {:<34} {}",
-            "Top-Level Call:".bold(),
-            fn_name.yellow().bold()
-        );
+        println!("  {:<34} {}", "Top-Level Call:".bold(), fn_name.yellow().bold());
     }
 
     let rows: &[(&str, String)] = &[
@@ -126,10 +111,7 @@ fn print_aave_report(
         ("Storage Writes (SSTORE):", aave.storage_writes.to_string()),
         ("External Calls:", aave.external_calls.to_string()),
         ("Oracle Calls:", aave.oracle_calls.to_string()),
-        (
-            "Cross-VM Calls (Stylus):",
-            nitro.vm_boundary_count.to_string(),
-        ),
+        ("Cross-VM Calls (Stylus):", nitro.vm_boundary_count.to_string()),
         ("Max Call Depth:", aave.max_depth.to_string()),
     ];
     for (label, val) in rows {
@@ -153,17 +135,9 @@ fn print_aave_report(
     println!(
         "  {:<34} {}",
         "Reverted:".bold(),
-        if aave.reverted {
-            "YES".red().bold().to_string()
-        } else {
-            "NO".green().to_string()
-        }
+        if aave.reverted { "YES".red().bold().to_string() } else { "NO".green().to_string() }
     );
-    println!(
-        "  {:<34} {:.4}",
-        "Liquidation Efficiency:".bold(),
-        aave.liquidation_efficiency
-    );
+    println!("  {:<34} {:.4}", "Liquidation Efficiency:".bold(), aave.liquidation_efficiency);
     println!("{div}");
 }
 
@@ -179,11 +153,7 @@ fn print_lido_report(
     if let Some(sel) = top_selector {
         let fn_name = atupa_lido::LidoAdapter::resolve_selector_label(sel)
             .unwrap_or_else(|| format!("unknown fn ({sel})"));
-        println!(
-            "  {:<34} {}",
-            "Top-Level Call:".bold(),
-            fn_name.yellow().bold()
-        );
+        println!("  {:<34} {}", "Top-Level Call:".bold(), fn_name.yellow().bold());
     }
 
     let rows: &[(&str, String)] = &[
@@ -196,10 +166,7 @@ fn print_lido_report(
         ("Withdrawal Requests:", lido.withdrawal_requests.to_string()),
         ("Withdrawal Claims:", lido.withdrawal_claims.to_string()),
         ("Wrapped Ops (wstETH):", lido.wrapped_ops.to_string()),
-        (
-            "Cross-VM Calls (Stylus):",
-            nitro.vm_boundary_count.to_string(),
-        ),
+        ("Cross-VM Calls (Stylus):", nitro.vm_boundary_count.to_string()),
         ("Max Call Depth:", lido.max_depth.to_string()),
     ];
     for (label, val) in rows {
@@ -218,10 +185,7 @@ fn print_lido_report(
             );
         }
         if lido.labeled_calls.len() > 10 {
-            println!(
-                "    ... and {} more",
-                (lido.labeled_calls.len() - 10).to_string().dimmed()
-            );
+            println!("    ... and {} more", (lido.labeled_calls.len() - 10).to_string().dimmed());
         }
         println!("{div}");
     }
@@ -229,11 +193,7 @@ fn print_lido_report(
     println!(
         "  {:<34} {}",
         "Reverted:".bold(),
-        if lido.reverted {
-            "YES".red().bold().to_string()
-        } else {
-            "NO".green().to_string()
-        }
+        if lido.reverted { "YES".red().bold().to_string() } else { "NO".green().to_string() }
     );
     println!("{div}");
 }

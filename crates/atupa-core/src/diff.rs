@@ -66,14 +66,7 @@ impl DiffRow {
     pub fn new(metric: &str, base: f64, target: f64, higher_is_worse: bool) -> Self {
         let delta = target - base;
         let pct = if base != 0.0 { delta / base * 100.0 } else { 0.0 };
-        Self {
-            metric: metric.to_string(),
-            base,
-            target,
-            delta,
-            pct,
-            higher_is_worse,
-        }
+        Self { metric: metric.to_string(), base, target, delta, pct, higher_is_worse }
     }
 
     /// Returns `true` if this metric has regressed (moved in the undesired direction).
@@ -81,14 +74,12 @@ impl DiffRow {
     /// - `higher_is_worse = true` → regression when `delta > 0` (cost increased).
     /// - `higher_is_worse = false` → regression when `delta < 0` (a desirable metric decreased).
     pub fn is_regression(&self) -> bool {
-        (self.higher_is_worse && self.delta > 0.0)
-            || (!self.higher_is_worse && self.delta < 0.0)
+        (self.higher_is_worse && self.delta > 0.0) || (!self.higher_is_worse && self.delta < 0.0)
     }
 
     /// Returns `true` if this metric has improved relative to the baseline.
     pub fn is_improvement(&self) -> bool {
-        (self.higher_is_worse && self.delta < 0.0)
-            || (!self.higher_is_worse && self.delta > 0.0)
+        (self.higher_is_worse && self.delta < 0.0) || (!self.higher_is_worse && self.delta > 0.0)
     }
 
     /// Returns `true` if the metric value is unchanged between base and target.
@@ -150,9 +141,9 @@ mod tests {
     #[test]
     fn report_detects_regressions() {
         let rows = vec![
-            DiffRow::new("Gas", 100.0, 120.0, true),  // regression
-            DiffRow::new("Steps", 50.0, 50.0, true),  // neutral
-            DiffRow::new("Reads", 10.0, 8.0, true),   // improvement
+            DiffRow::new("Gas", 100.0, 120.0, true), // regression
+            DiffRow::new("Steps", 50.0, 50.0, true), // neutral
+            DiffRow::new("Reads", 10.0, 8.0, true),  // improvement
         ];
         let report = ProtocolDiffReport { protocol: "Test".to_string(), rows };
         assert!(report.has_regressions());
@@ -163,8 +154,8 @@ mod tests {
     #[test]
     fn report_with_no_regressions() {
         let rows = vec![
-            DiffRow::new("Gas", 100.0, 90.0, true),   // improvement
-            DiffRow::new("Steps", 50.0, 50.0, true),  // neutral
+            DiffRow::new("Gas", 100.0, 90.0, true),  // improvement
+            DiffRow::new("Steps", 50.0, 50.0, true), // neutral
         ];
         let report = ProtocolDiffReport { protocol: "Test".to_string(), rows };
         assert!(!report.has_regressions());

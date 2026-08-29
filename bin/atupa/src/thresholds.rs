@@ -95,17 +95,14 @@ impl DiffConfig {
         if let Some(max_evm) = self.max_evm_steps_increase
             && evm_delta > max_evm as f64
         {
-            failures.push(format!(
-                "EVM Steps increased by {evm_delta:.0} (limit: {max_evm})"
-            ));
+            failures.push(format!("EVM Steps increased by {evm_delta:.0} (limit: {max_evm})"));
         }
 
         if let Some(max_stylus) = self.max_stylus_calls_increase
             && stylus_delta > max_stylus as f64
         {
-            failures.push(format!(
-                "Stylus Calls increased by {stylus_delta:.0} (limit: {max_stylus})"
-            ));
+            failures
+                .push(format!("Stylus Calls increased by {stylus_delta:.0} (limit: {max_stylus})"));
         }
 
         failures

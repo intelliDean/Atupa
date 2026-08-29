@@ -85,14 +85,8 @@ mod tests {
 
     #[test]
     fn static_resolver_is_case_insensitive() {
-        assert_eq!(
-            Erc20Adapter::resolve_erc20_selector("0xA9059CBB"),
-            Some("transfer")
-        );
-        assert_eq!(
-            Erc20Adapter::resolve_erc20_selector("  0x095ea7b3  "),
-            Some("approve")
-        );
+        assert_eq!(Erc20Adapter::resolve_erc20_selector("0xA9059CBB"), Some("transfer"));
+        assert_eq!(Erc20Adapter::resolve_erc20_selector("  0x095ea7b3  "), Some("approve"));
     }
 
     #[test]

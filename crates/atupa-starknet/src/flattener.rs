@@ -1,7 +1,7 @@
 //! Flattens hierarchical Starknet call trees into linear [`TraceStep`] execution timelines.
 
-use atupa_core::{TraceStep, VmKind};
 use crate::types::{ExecutionResources, FunctionInvocation, StarknetTransactionTrace};
+use atupa_core::{TraceStep, VmKind};
 
 // ─── Builtin Gas Weights ──────────────────────────────────────────────────────
 
@@ -75,11 +75,7 @@ pub fn flatten_trace(trace: &StarknetTransactionTrace) -> Vec<TraceStep> {
     all_steps
 }
 
-fn append_builtin_steps(
-    resources: &ExecutionResources,
-    depth: u16,
-    steps: &mut Vec<TraceStep>,
-) {
+fn append_builtin_steps(resources: &ExecutionResources, depth: u16, steps: &mut Vec<TraceStep>) {
     let mut add_builtin = |op: &str, count: u64, weight: u64| {
         if count > 0 {
             steps.push(TraceStep {
@@ -125,10 +121,7 @@ mod tests {
                 contract_address: "0x2".to_string(),
                 entry_point_selector: "0xdeadbeef".to_string(),
                 calldata: vec![],
-                execution_resources: ExecutionResources {
-                    steps: 50,
-                    ..Default::default()
-                },
+                execution_resources: ExecutionResources { steps: 50, ..Default::default() },
                 calls: vec![],
             }],
         };
@@ -160,19 +153,13 @@ mod tests {
             validate_invocation: Some(FunctionInvocation {
                 contract_address: "0xAccount".to_string(),
                 entry_point_selector: "0xvalidate".to_string(),
-                execution_resources: ExecutionResources {
-                    steps: 40,
-                    ..Default::default()
-                },
+                execution_resources: ExecutionResources { steps: 40, ..Default::default() },
                 ..Default::default()
             }),
             execute_invocation: Some(FunctionInvocation {
                 contract_address: "0xDapp".to_string(),
                 entry_point_selector: "0xexecute".to_string(),
-                execution_resources: ExecutionResources {
-                    steps: 200,
-                    ..Default::default()
-                },
+                execution_resources: ExecutionResources { steps: 200, ..Default::default() },
                 ..Default::default()
             }),
             fee_transfer_invocation: None,

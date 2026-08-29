@@ -53,12 +53,7 @@ impl TraceStep {
     /// assert_eq!(step.gas_cost, 5_000);
     /// ```
     pub fn evm(op: impl Into<String>, gas_cost: u64) -> Self {
-        Self {
-            op: op.into(),
-            gas_cost,
-            vm_kind: VmKind::Evm,
-            ..Default::default()
-        }
+        Self { op: op.into(), gas_cost, vm_kind: VmKind::Evm, ..Default::default() }
     }
 
     /// Returns `true` if this step represents a cross-frame call boundary in the EVM.
@@ -175,10 +170,7 @@ pub struct ProfileBuilder {
 impl ProfileBuilder {
     /// Start building a [`Profile`] for the given transaction hash.
     pub fn new(tx_hash: impl Into<String>) -> Self {
-        Self {
-            tx_hash: tx_hash.into(),
-            generated_at: None,
-        }
+        Self { tx_hash: tx_hash.into(), generated_at: None }
     }
 
     /// Override the `generated_at` timestamp.
@@ -197,9 +189,7 @@ impl ProfileBuilder {
             total_gas: 0,
             categories: HashMap::new(),
             hot_paths: Vec::new(),
-            generated_at: self
-                .generated_at
-                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
+            generated_at: self.generated_at.unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
         }
     }
 }
@@ -212,9 +202,7 @@ mod tests {
 
     #[test]
     fn profile_builder_deterministic_timestamp() {
-        let p = ProfileBuilder::new("0xabc")
-            .generated_at("2026-01-01T00:00:00Z")
-            .build();
+        let p = ProfileBuilder::new("0xabc").generated_at("2026-01-01T00:00:00Z").build();
         assert_eq!(p.transaction_hash, "0xabc");
         assert_eq!(p.generated_at, "2026-01-01T00:00:00Z");
         assert_eq!(p.total_gas, 0);

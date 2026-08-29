@@ -18,10 +18,7 @@ pub struct StellarClient {
 impl StellarClient {
     /// Creates a new [`StellarClient`] pointing to the specified Stellar/Soroban RPC endpoint.
     pub fn new(rpc_url: impl Into<String>) -> Self {
-        Self {
-            rpc_url: rpc_url.into(),
-            client: Client::new(),
-        }
+        Self { rpc_url: rpc_url.into(), client: Client::new() }
     }
 
     /// Returns the target RPC URL.
@@ -30,10 +27,7 @@ impl StellarClient {
     }
 
     /// Retrieves diagnostic events for a confirmed transaction and reconstructs [`TraceStep`]s.
-    pub async fn get_transaction_trace(
-        &self,
-        tx_hash: &str,
-    ) -> StellarResult<Vec<TraceStep>> {
+    pub async fn get_transaction_trace(&self, tx_hash: &str) -> StellarResult<Vec<TraceStep>> {
         let payload = json!({
             "jsonrpc": "2.0",
             "method": "getTransaction",
@@ -52,10 +46,7 @@ impl StellarClient {
 
         if let Some(error) = response.get("error") {
             return Err(StellarError::Rpc(RpcError::Node(
-                error["message"]
-                    .as_str()
-                    .unwrap_or("Unknown RPC error")
-                    .to_string(),
+                error["message"].as_str().unwrap_or("Unknown RPC error").to_string(),
             )));
         }
 
@@ -74,9 +65,6 @@ mod tests {
     #[test]
     fn client_constructor_and_getter() {
         let client = StellarClient::new("https://soroban-rpc.mainnet.stellar.org");
-        assert_eq!(
-            client.rpc_url(),
-            "https://soroban-rpc.mainnet.stellar.org"
-        );
+        assert_eq!(client.rpc_url(), "https://soroban-rpc.mainnet.stellar.org");
     }
 }

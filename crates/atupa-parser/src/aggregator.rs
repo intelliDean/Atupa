@@ -22,10 +22,7 @@ impl Aggregator {
         steps: &[TraceStep],
         registry: &AdapterRegistry,
     ) -> Vec<CollapsedStack> {
-        debug!(
-            "Building collapsed stacks from {} execution steps",
-            steps.len()
-        );
+        debug!("Building collapsed stacks from {} execution steps", steps.len());
 
         let mut stack_map: HashMap<String, AggregatedData> = HashMap::new();
         let mut call_stack: Vec<String> = Vec::new();
@@ -150,20 +147,8 @@ mod tests {
     #[test]
     fn collapses_simple_call_hierarchy() {
         let steps = vec![
-            TraceStep {
-                op: "PUSH1".into(),
-                gas: 100,
-                gas_cost: 3,
-                depth: 1,
-                ..Default::default()
-            },
-            TraceStep {
-                pc: 1,
-                op: "CALL".into(),
-                gas: 90,
-                depth: 1,
-                ..Default::default()
-            },
+            TraceStep { op: "PUSH1".into(), gas: 100, gas_cost: 3, depth: 1, ..Default::default() },
+            TraceStep { pc: 1, op: "CALL".into(), gas: 90, depth: 1, ..Default::default() },
             TraceStep {
                 op: "SSTORE".into(),
                 gas: 50,
@@ -171,46 +156,22 @@ mod tests {
                 depth: 2,
                 ..Default::default()
             },
-            TraceStep {
-                pc: 1,
-                op: "RETURN".into(),
-                gas: 20,
-                depth: 2,
-                ..Default::default()
-            },
-            TraceStep {
-                pc: 2,
-                op: "STOP".into(),
-                gas: 15,
-                depth: 1,
-                ..Default::default()
-            },
+            TraceStep { pc: 1, op: "RETURN".into(), gas: 20, depth: 2, ..Default::default() },
+            TraceStep { pc: 2, op: "STOP".into(), gas: 15, depth: 1, ..Default::default() },
         ];
 
         let stacks = Aggregator::build_collapsed_stacks(&steps);
         assert!(!stacks.is_empty());
-        let sstore_stack = stacks
-            .iter()
-            .find(|s| s.stack == "CALL;CALL;SSTORE")
-            .expect("Should find SSTORE");
+        let sstore_stack =
+            stacks.iter().find(|s| s.stack == "CALL;CALL;SSTORE").expect("Should find SSTORE");
         assert_eq!(sstore_stack.weight, 20);
     }
 
     #[test]
     fn handles_recursive_call_depths() {
         let steps = vec![
-            TraceStep {
-                op: "CALL".into(),
-                gas: 1000,
-                depth: 1,
-                ..Default::default()
-            },
-            TraceStep {
-                op: "CALL".into(),
-                gas: 900,
-                depth: 2,
-                ..Default::default()
-            },
+            TraceStep { op: "CALL".into(), gas: 1000, depth: 1, ..Default::default() },
+            TraceStep { op: "CALL".into(), gas: 900, depth: 2, ..Default::default() },
             TraceStep {
                 op: "SSTORE".into(),
                 gas: 800,
@@ -218,20 +179,8 @@ mod tests {
                 depth: 3,
                 ..Default::default()
             },
-            TraceStep {
-                pc: 1,
-                op: "RETURN".into(),
-                gas: 700,
-                depth: 3,
-                ..Default::default()
-            },
-            TraceStep {
-                pc: 1,
-                op: "RETURN".into(),
-                gas: 600,
-                depth: 2,
-                ..Default::default()
-            },
+            TraceStep { pc: 1, op: "RETURN".into(), gas: 700, depth: 3, ..Default::default() },
+            TraceStep { pc: 1, op: "RETURN".into(), gas: 600, depth: 2, ..Default::default() },
         ];
 
         let stacks = Aggregator::build_collapsed_stacks(&steps);
@@ -245,12 +194,7 @@ mod tests {
     #[test]
     fn propagates_revert_status() {
         let steps = vec![
-            TraceStep {
-                op: "CALL".into(),
-                gas: 1000,
-                depth: 1,
-                ..Default::default()
-            },
+            TraceStep { op: "CALL".into(), gas: 1000, depth: 1, ..Default::default() },
             TraceStep {
                 op: "REVERT".into(),
                 gas: 900,
@@ -263,10 +207,8 @@ mod tests {
         ];
 
         let stacks = Aggregator::build_collapsed_stacks(&steps);
-        let revert_stack = stacks
-            .iter()
-            .find(|s| s.stack == "CALL;CALL;REVERT")
-            .expect("Should find REVERT");
+        let revert_stack =
+            stacks.iter().find(|s| s.stack == "CALL;CALL;REVERT").expect("Should find REVERT");
         assert!(revert_stack.reverted);
         assert_eq!(revert_stack.weight, 200);
     }
@@ -276,8 +218,8 @@ mod tests {
         let stack = vec![
             "0x0".to_string(),
             "0x0".to_string(),
-            "0x4".to_string(),   // argsLength = 4
-            "0x20".to_string(),  // argsOffset = 32
+            "0x4".to_string(),  // argsLength = 4
+            "0x20".to_string(), // argsOffset = 32
             "0x0".to_string(),
             "0x0000000000000000000000001111111111111111111111111111111111111111".to_string(),
             "0x1000".to_string(),
@@ -298,29 +240,17 @@ mod tests {
                 memory: Some(memory),
                 ..Default::default()
             },
-            TraceStep {
-                pc: 1,
-                op: "STOP".into(),
-                gas: 900,
-                depth: 1,
-                ..Default::default()
-            },
+            TraceStep { pc: 1, op: "STOP".into(), gas: 900, depth: 1, ..Default::default() },
         ];
 
         let stacks = Aggregator::build_collapsed_stacks(&steps);
-        let call_stack = stacks
-            .iter()
-            .find(|s| s.stack == "CALL;CALL")
-            .expect("Should find CALL");
+        let call_stack = stacks.iter().find(|s| s.stack == "CALL;CALL").expect("Should find CALL");
 
         assert_eq!(
             call_stack.target_address.as_deref(),
             Some("0x1111111111111111111111111111111111111111")
         );
-        assert_eq!(
-            call_stack.resolved_label.as_deref(),
-            Some("Uniswapv4: beforeInitialize")
-        );
+        assert_eq!(call_stack.resolved_label.as_deref(), Some("Uniswapv4: beforeInitialize"));
     }
 
     #[test]
@@ -330,7 +260,11 @@ mod tests {
             fn name(&self) -> &str {
                 "CustomProtocol"
             }
-            fn resolve_label(&self, _address: Option<&str>, selector: Option<&str>) -> Option<String> {
+            fn resolve_label(
+                &self,
+                _address: Option<&str>,
+                selector: Option<&str>,
+            ) -> Option<String> {
                 if selector == Some("0xab9c4b5d") {
                     Some("Custom::flashLoan".to_string())
                 } else {
@@ -349,9 +283,8 @@ mod tests {
             "0x1000".to_string(),
         ];
 
-        let memory = vec![
-            "ab9c4b5d00000000000000000000000000000000000000000000000000000000".to_string(),
-        ];
+        let memory =
+            vec!["ab9c4b5d00000000000000000000000000000000000000000000000000000000".to_string()];
 
         let steps = vec![TraceStep {
             op: "CALL".into(),
@@ -367,14 +300,8 @@ mod tests {
         registry.register_typed(MockCustomAdapter);
 
         let stacks = Aggregator::build_collapsed_stacks_with_registry(&steps, &registry);
-        let call_stack = stacks
-            .iter()
-            .find(|s| s.stack == "CALL;CALL")
-            .expect("Should find CALL");
+        let call_stack = stacks.iter().find(|s| s.stack == "CALL;CALL").expect("Should find CALL");
 
-        assert_eq!(
-            call_stack.resolved_label.as_deref(),
-            Some("Custom::flashLoan")
-        );
+        assert_eq!(call_stack.resolved_label.as_deref(), Some("Custom::flashLoan"));
     }
 }

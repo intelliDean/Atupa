@@ -91,12 +91,7 @@ impl MixedTraceStitcher {
 
             // ── WASM Window ──────────────────────────────────────────────────
             // Drain Stylus HostIOs that belong to this boundary frame.
-            let window_ink = drain_wasm_window(
-                &mut stylus_iter,
-                &mut steps,
-                &mut index,
-                depth + 1,
-            );
+            let window_ink = drain_wasm_window(&mut stylus_iter, &mut steps, &mut index, depth + 1);
 
             if window_ink > 0 {
                 total_stylus_ink = total_stylus_ink.saturating_add(window_ink);

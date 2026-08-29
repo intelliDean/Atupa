@@ -18,10 +18,7 @@ pub struct StarknetClient {
 impl StarknetClient {
     /// Creates a new [`StarknetClient`] pointing to the specified Starknet RPC endpoint.
     pub fn new(rpc_url: impl Into<String>) -> Self {
-        Self {
-            rpc_url: rpc_url.into(),
-            client: Client::new(),
-        }
+        Self { rpc_url: rpc_url.into(), client: Client::new() }
     }
 
     /// Returns the target RPC URL.
@@ -52,10 +49,7 @@ impl StarknetClient {
 
         if let Some(error) = response.get("error") {
             return Err(StarknetError::Rpc(RpcError::Node(
-                error["message"]
-                    .as_str()
-                    .unwrap_or("Unknown RPC error")
-                    .to_string(),
+                error["message"].as_str().unwrap_or("Unknown RPC error").to_string(),
             )));
         }
 
@@ -85,9 +79,6 @@ mod tests {
     #[test]
     fn client_constructor_and_getter() {
         let client = StarknetClient::new("https://starknet-mainnet.public.blastapi.io");
-        assert_eq!(
-            client.rpc_url(),
-            "https://starknet-mainnet.public.blastapi.io"
-        );
+        assert_eq!(client.rpc_url(), "https://starknet-mainnet.public.blastapi.io");
     }
 }

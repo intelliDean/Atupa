@@ -44,9 +44,7 @@ impl Default for AdapterRegistry {
 impl AdapterRegistry {
     /// Creates an empty registry with no adapters loaded.
     pub fn empty() -> Self {
-        Self {
-            adapters: Vec::new(),
-        }
+        Self { adapters: Vec::new() }
     }
 
     /// Creates a new registry with default built-in adapters loaded.
@@ -184,14 +182,8 @@ mod tests {
 
         assert_eq!(registry.len(), 2);
         assert_eq!(registry.adapter_names(), vec!["Uniswap v4", "CustomProtocol"]);
-        assert_eq!(
-            registry.resolve_selector("0x9999"),
-            Some("Custom::action".to_string())
-        );
-        assert_eq!(
-            registry.resolve_address("0x1234"),
-            Some("Custom::Target".to_string())
-        );
+        assert_eq!(registry.resolve_selector("0x9999"), Some("Custom::action".to_string()));
+        assert_eq!(registry.resolve_address("0x1234"), Some("Custom::Target".to_string()));
     }
 
     #[test]
@@ -202,10 +194,7 @@ mod tests {
             .with_boxed_adapter(Box::new(MockCustomAdapter));
 
         assert_eq!(registry.len(), 3);
-        assert_eq!(
-            registry.adapter_names(),
-            vec!["Uniswap v4", "ERC-20", "CustomProtocol"]
-        );
+        assert_eq!(registry.adapter_names(), vec!["Uniswap v4", "ERC-20", "CustomProtocol"]);
     }
 
     #[test]
@@ -215,7 +204,11 @@ mod tests {
             fn name(&self) -> &str {
                 "Override"
             }
-            fn resolve_label(&self, _address: Option<&str>, selector: Option<&str>) -> Option<String> {
+            fn resolve_label(
+                &self,
+                _address: Option<&str>,
+                selector: Option<&str>,
+            ) -> Option<String> {
                 if selector == Some("0x18a9d381") {
                     Some("Overridden!".to_string())
                 } else {
@@ -229,10 +222,7 @@ mod tests {
         registry.register_typed(OverrideAdapter);
         registry.register_typed(UniswapV4Adapter);
 
-        assert_eq!(
-            registry.resolve_selector("0x18a9d381"),
-            Some("Overridden!".to_string())
-        );
+        assert_eq!(registry.resolve_selector("0x18a9d381"), Some("Overridden!".to_string()));
     }
 
     #[test]
@@ -246,9 +236,8 @@ mod tests {
 
     #[test]
     fn iter_registered_adapters() {
-        let registry = AdapterRegistry::empty()
-            .with_adapter(UniswapV4Adapter)
-            .with_adapter(Erc20Adapter);
+        let registry =
+            AdapterRegistry::empty().with_adapter(UniswapV4Adapter).with_adapter(Erc20Adapter);
 
         let names: Vec<&str> = registry.iter().map(|a| a.name()).collect();
         assert_eq!(names, vec!["Uniswap v4", "ERC-20"]);

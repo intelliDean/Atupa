@@ -15,10 +15,7 @@ pub struct EthClient {
 impl EthClient {
     /// Creates a new [`EthClient`] connected to the given JSON-RPC URL.
     pub fn new(rpc_url: impl Into<String>) -> Self {
-        Self {
-            rpc_url: rpc_url.into(),
-            client: Client::new(),
-        }
+        Self { rpc_url: rpc_url.into(), client: Client::new() }
     }
 
     /// Returns the target RPC URL.
@@ -44,12 +41,7 @@ impl EthClient {
             "id": 1
         });
 
-        let response = self
-            .client
-            .post(&self.rpc_url)
-            .json(&payload)
-            .send()
-            .await?;
+        let response = self.client.post(&self.rpc_url).json(&payload).send().await?;
 
         let rpc_res: RpcResponse<TraceResult> = response.json().await?;
 
@@ -57,9 +49,7 @@ impl EthClient {
             return Err(RpcError::Node(err.message));
         }
 
-        rpc_res
-            .result
-            .ok_or_else(|| RpcError::Node("Missing result in RPC response".to_string()))
+        rpc_res.result.ok_or_else(|| RpcError::Node("Missing result in RPC response".to_string()))
     }
 
     /// Fetch the chain ID from the node (`eth_chainId`).
@@ -71,19 +61,12 @@ impl EthClient {
             "id": 1
         });
 
-        let response = self
-            .client
-            .post(&self.rpc_url)
-            .json(&payload)
-            .send()
-            .await?;
+        let response = self.client.post(&self.rpc_url).json(&payload).send().await?;
 
         let rpc_res: serde_json::Value = response.json().await?;
 
         if let Some(err) = rpc_res.get("error") {
-            return Err(RpcError::Node(
-                err["message"].as_str().unwrap_or("Unknown").to_string(),
-            ));
+            return Err(RpcError::Node(err["message"].as_str().unwrap_or("Unknown").to_string()));
         }
 
         let result = rpc_res["result"]
@@ -105,13 +88,7 @@ impl EthClient {
             "id": 1
         });
 
-        let response = self
-            .client
-            .post(&self.rpc_url)
-            .json(&payload)
-            .send()
-            .await
-            .ok()?;
+        let response = self.client.post(&self.rpc_url).json(&payload).send().await.ok()?;
 
         let rpc_res: serde_json::Value = response.json().await.ok()?;
         let gas_hex = rpc_res["result"]["gasUsed"].as_str()?;
@@ -129,13 +106,7 @@ impl EthClient {
             "id": 1
         });
 
-        let response = self
-            .client
-            .post(&self.rpc_url)
-            .json(&payload)
-            .send()
-            .await
-            .ok()?;
+        let response = self.client.post(&self.rpc_url).json(&payload).send().await.ok()?;
 
         let rpc_res: serde_json::Value = response.json().await.ok()?;
         rpc_res["result"]["input"].as_str().map(|s| s.to_string())

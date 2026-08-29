@@ -95,18 +95,12 @@ impl EtherscanResolver {
             let mut lock = cache_clone.lock().await;
             *lock = disk_cache;
             if cache_size > 0 {
-                log::info!(
-                    "Loaded {} Etherscan contract name(s) from disk cache",
-                    cache_size
-                );
+                log::info!("Loaded {} Etherscan contract name(s) from disk cache", cache_size);
             }
         });
 
         Self {
-            client: Client::builder()
-                .timeout(Duration::from_secs(5))
-                .build()
-                .unwrap_or_default(),
+            client: Client::builder().timeout(Duration::from_secs(5)).build().unwrap_or_default(),
             cache,
             api_key,
             chain_id,
@@ -160,11 +154,7 @@ impl EtherscanResolver {
                     return Some(name);
                 }
                 _ => {
-                    log::debug!(
-                        "Etherscan hit but no name for {}: {:?}",
-                        address,
-                        api_res
-                    );
+                    log::debug!("Etherscan hit but no name for {}: {:?}", address, api_res);
                 }
             }
         }
@@ -188,9 +178,8 @@ mod tests {
             );
         }
 
-        let name = resolver
-            .resolve_contract_name("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
-            .await;
+        let name =
+            resolver.resolve_contract_name("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48").await;
         assert_eq!(name, Some("FiatTokenV2".to_string()));
     }
 

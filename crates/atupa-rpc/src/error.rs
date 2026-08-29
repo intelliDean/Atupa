@@ -28,9 +28,6 @@ mod tests {
     #[test]
     fn rpc_error_node_display() {
         let err = RpcError::Node("method debug_traceTransaction not found".to_string());
-        assert_eq!(
-            err.to_string(),
-            "RPC error: method debug_traceTransaction not found"
-        );
+        assert_eq!(err.to_string(), "RPC error: method debug_traceTransaction not found");
     }
 }

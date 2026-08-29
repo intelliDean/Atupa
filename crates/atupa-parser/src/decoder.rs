@@ -20,11 +20,7 @@ pub fn extract_target_address(stack: &[String]) -> Option<String> {
 ///
 /// Handles both single 32-byte word extraction and selectors spanning across
 /// adjacent 32-byte memory word boundaries.
-pub fn extract_memory_selector(
-    op: &str,
-    stack: &[String],
-    memory: &[String],
-) -> Option<String> {
+pub fn extract_memory_selector(op: &str, stack: &[String], memory: &[String]) -> Option<String> {
     let (args_offset_idx, args_length_idx) = match op {
         "CALL" | "CALLCODE" if stack.len() >= 5 => (stack.len() - 4, stack.len() - 5),
         "DELEGATECALL" | "STATICCALL" if stack.len() >= 4 => (stack.len() - 3, stack.len() - 4),
@@ -74,19 +70,16 @@ mod tests {
     #[test]
     fn extracts_target_address_from_call_stack() {
         let stack = vec![
-            "0x0".to_string(), // retLength
-            "0x0".to_string(), // retOffset
-            "0x4".to_string(), // argsLength
+            "0x0".to_string(),  // retLength
+            "0x0".to_string(),  // retOffset
+            "0x4".to_string(),  // argsLength
             "0x20".to_string(), // argsOffset
-            "0x0".to_string(), // value
+            "0x0".to_string(),  // value
             "0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string(), // target address
-            "0x1000".to_string(), // gas
+            "0x1000".to_string(),                                                             // gas
         ];
         let addr = extract_target_address(&stack);
-        assert_eq!(
-            addr,
-            Some("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string())
-        );
+        assert_eq!(addr, Some("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string()));
     }
 
     #[test]
@@ -100,15 +93,14 @@ mod tests {
         let stack = vec![
             "0x0".to_string(),
             "0x0".to_string(),
-            "0x4".to_string(),  // length = 4 bytes
-            "0x0".to_string(),  // offset = 0 bytes
+            "0x4".to_string(), // length = 4 bytes
+            "0x0".to_string(), // offset = 0 bytes
             "0x0".to_string(),
             "0x1111".to_string(),
             "0x1000".to_string(),
         ];
-        let memory = vec![
-            "a9059cbb00000000000000000000000000000000000000000000000000000000".to_string(),
-        ];
+        let memory =
+            vec!["a9059cbb00000000000000000000000000000000000000000000000000000000".to_string()];
 
         let sel = extract_memory_selector("CALL", &stack, &memory);
         assert_eq!(sel, Some("0xa9059cbb".to_string()));
@@ -119,8 +111,8 @@ mod tests {
         let stack = vec![
             "0x0".to_string(),
             "0x0".to_string(),
-            "0x4".to_string(),   // length = 4 bytes
-            "0x20".to_string(),  // offset = 32 bytes (word 1)
+            "0x4".to_string(),  // length = 4 bytes
+            "0x20".to_string(), // offset = 32 bytes (word 1)
             "0x0".to_string(),
             "0x1111".to_string(),
             "0x1000".to_string(),
@@ -139,14 +131,13 @@ mod tests {
         let stack = vec![
             "0x0".to_string(),
             "0x0".to_string(),
-            "0x4".to_string(),  // length = 4 bytes (len - 4)
-            "0x0".to_string(),  // offset = 0 bytes (len - 3)
+            "0x4".to_string(), // length = 4 bytes (len - 4)
+            "0x0".to_string(), // offset = 0 bytes (len - 3)
             "0x1111".to_string(),
             "0x1000".to_string(),
         ];
-        let memory = vec![
-            "70a0823100000000000000000000000000000000000000000000000000000000".to_string(),
-        ];
+        let memory =
+            vec!["70a0823100000000000000000000000000000000000000000000000000000000".to_string()];
 
         let sel = extract_memory_selector("STATICCALL", &stack, &memory);
         assert_eq!(sel, Some("0x70a08231".to_string()));
@@ -157,15 +148,14 @@ mod tests {
         let stack = vec![
             "0x0".to_string(),
             "0x0".to_string(),
-            "0x3".to_string(),  // length < 4
+            "0x3".to_string(), // length < 4
             "0x0".to_string(),
             "0x0".to_string(),
             "0x1111".to_string(),
             "0x1000".to_string(),
         ];
-        let memory = vec![
-            "a9059cbb00000000000000000000000000000000000000000000000000000000".to_string(),
-        ];
+        let memory =
+            vec!["a9059cbb00000000000000000000000000000000000000000000000000000000".to_string()];
 
         assert_eq!(extract_memory_selector("CALL", &stack, &memory), None);
     }

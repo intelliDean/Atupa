@@ -135,10 +135,7 @@ mod tests {
 
     #[test]
     fn validate_accepts_default_config() {
-        assert!(
-            AtupaConfig::default().validate().is_ok(),
-            "default config should pass validation"
-        );
+        assert!(AtupaConfig::default().validate().is_ok(), "default config should pass validation");
     }
 
     #[test]

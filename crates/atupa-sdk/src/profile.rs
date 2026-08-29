@@ -4,7 +4,7 @@ use anyhow::Result;
 use atupa_core::{CollapsedStack, VmKind};
 use atupa_nitro::{NitroClient, VmKind as NitroVmKind};
 use atupa_output::SvgGenerator;
-use atupa_parser::{Parser as AtupaParser, aggregator::Aggregator};
+use atupa_parser::{aggregator::Aggregator, Parser as AtupaParser};
 use atupa_rpc::etherscan::EtherscanResolver;
 use atupa_solana::{SolanaClient, SolanaLogStitcher};
 use atupa_starknet::StarknetClient;
@@ -156,16 +156,8 @@ async fn fetch_evm_nitro_stacks(
         .map_err(|e| anyhow::anyhow!("RPC error: {e}"))?;
 
     let network = get_network_name(report.chain_id);
-    let evm_count = report
-        .steps
-        .iter()
-        .filter(|s| s.vm == NitroVmKind::Evm)
-        .count();
-    let wasm_count = report
-        .steps
-        .iter()
-        .filter(|s| s.vm == NitroVmKind::Stylus)
-        .count();
+    let evm_count = report.steps.iter().filter(|s| s.vm == NitroVmKind::Evm).count();
+    let wasm_count = report.steps.iter().filter(|s| s.vm == NitroVmKind::Stylus).count();
     pb.set_message(format!(
         "Processing {evm_count} EVM + {wasm_count} Stylus steps from {network}…"
     ));
@@ -319,9 +311,7 @@ pub fn demo_stacks() -> Vec<CollapsedStack> {
             depth: 1,
             vm_kind: VmKind::Stylus,
             target_address: None,
-            resolved_label: Some(
-                "storage_load_bytes32 (4,215 ink → 0.42 gas-equiv)".to_string(),
-            ),
+            resolved_label: Some("storage_load_bytes32 (4,215 ink → 0.42 gas-equiv)".to_string()),
             reverted: false,
         },
         CollapsedStack {
@@ -331,9 +321,7 @@ pub fn demo_stacks() -> Vec<CollapsedStack> {
             depth: 1,
             vm_kind: VmKind::Stylus,
             target_address: None,
-            resolved_label: Some(
-                "storage_flush_cache (40,010 ink → 4.00 gas-equiv)".to_string(),
-            ),
+            resolved_label: Some("storage_flush_cache (40,010 ink → 4.00 gas-equiv)".to_string()),
             reverted: false,
         },
         CollapsedStack {

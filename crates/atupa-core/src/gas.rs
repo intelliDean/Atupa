@@ -60,28 +60,21 @@ impl GasCategory {
             // Cryptography
             "KECCAK256" | "SHA3" => Self::Crypto,
             // Calls & deployment
-            "CALL" | "STATICCALL" | "DELEGATECALL" | "CALLCODE"
-            | "CREATE" | "CREATE2"
+            "CALL" | "STATICCALL" | "DELEGATECALL" | "CALLCODE" | "CREATE" | "CREATE2"
             | "RETURN" | "REVERT" | "STOP" | "INVALID" | "SELFDESTRUCT" => Self::Call,
             // Arithmetic, logic, stack & control flow
-            "ADD" | "SUB" | "MUL" | "DIV" | "SDIV" | "MOD" | "SMOD"
-            | "ADDMOD" | "MULMOD" | "EXP" | "SIGNEXTEND"
-            | "LT" | "GT" | "SLT" | "SGT" | "EQ" | "ISZERO"
-            | "AND" | "OR" | "XOR" | "NOT" | "BYTE" | "SHL" | "SHR" | "SAR"
-            | "POP"
-            | "PUSH1" | "PUSH2" | "PUSH3" | "PUSH4" | "PUSH5" | "PUSH6"
-            | "PUSH7" | "PUSH8" | "PUSH9" | "PUSH10" | "PUSH11" | "PUSH12"
-            | "PUSH13" | "PUSH14" | "PUSH15" | "PUSH16" | "PUSH17" | "PUSH18"
-            | "PUSH19" | "PUSH20" | "PUSH21" | "PUSH22" | "PUSH23" | "PUSH24"
-            | "PUSH25" | "PUSH26" | "PUSH27" | "PUSH28" | "PUSH29" | "PUSH30"
-            | "PUSH31" | "PUSH32"
-            | "DUP1" | "DUP2" | "DUP3" | "DUP4" | "DUP5" | "DUP6" | "DUP7"
-            | "DUP8" | "DUP9" | "DUP10" | "DUP11" | "DUP12" | "DUP13"
-            | "DUP14" | "DUP15" | "DUP16"
-            | "SWAP1" | "SWAP2" | "SWAP3" | "SWAP4" | "SWAP5" | "SWAP6"
-            | "SWAP7" | "SWAP8" | "SWAP9" | "SWAP10" | "SWAP11" | "SWAP12"
-            | "SWAP13" | "SWAP14" | "SWAP15" | "SWAP16"
-            | "JUMP" | "JUMPI" | "PC" | "GAS" | "JUMPDEST" => Self::Execution,
+            "ADD" | "SUB" | "MUL" | "DIV" | "SDIV" | "MOD" | "SMOD" | "ADDMOD" | "MULMOD"
+            | "EXP" | "SIGNEXTEND" | "LT" | "GT" | "SLT" | "SGT" | "EQ" | "ISZERO" | "AND"
+            | "OR" | "XOR" | "NOT" | "BYTE" | "SHL" | "SHR" | "SAR" | "POP" | "PUSH1" | "PUSH2"
+            | "PUSH3" | "PUSH4" | "PUSH5" | "PUSH6" | "PUSH7" | "PUSH8" | "PUSH9" | "PUSH10"
+            | "PUSH11" | "PUSH12" | "PUSH13" | "PUSH14" | "PUSH15" | "PUSH16" | "PUSH17"
+            | "PUSH18" | "PUSH19" | "PUSH20" | "PUSH21" | "PUSH22" | "PUSH23" | "PUSH24"
+            | "PUSH25" | "PUSH26" | "PUSH27" | "PUSH28" | "PUSH29" | "PUSH30" | "PUSH31"
+            | "PUSH32" | "DUP1" | "DUP2" | "DUP3" | "DUP4" | "DUP5" | "DUP6" | "DUP7" | "DUP8"
+            | "DUP9" | "DUP10" | "DUP11" | "DUP12" | "DUP13" | "DUP14" | "DUP15" | "DUP16"
+            | "SWAP1" | "SWAP2" | "SWAP3" | "SWAP4" | "SWAP5" | "SWAP6" | "SWAP7" | "SWAP8"
+            | "SWAP9" | "SWAP10" | "SWAP11" | "SWAP12" | "SWAP13" | "SWAP14" | "SWAP15"
+            | "SWAP16" | "JUMP" | "JUMPI" | "PC" | "GAS" | "JUMPDEST" => Self::Execution,
             _ => Self::Other,
         }
     }
@@ -236,20 +229,14 @@ mod tests {
 
     #[test]
     fn stylus_call_ops() {
-        assert_eq!(
-            GasCategory::from_step("call_contract", &VmKind::Stylus),
-            GasCategory::Call
-        );
+        assert_eq!(GasCategory::from_step("call_contract", &VmKind::Stylus), GasCategory::Call);
     }
 
     // ── Starknet ──────────────────────────────────────────────────────────────
 
     #[test]
     fn starknet_crypto_and_storage() {
-        assert_eq!(
-            GasCategory::from_step("pedersen_hash", &VmKind::Starknet),
-            GasCategory::Crypto
-        );
+        assert_eq!(GasCategory::from_step("pedersen_hash", &VmKind::Starknet), GasCategory::Crypto);
         assert_eq!(
             GasCategory::from_step("poseidon_hash_many", &VmKind::Starknet),
             GasCategory::Crypto
@@ -268,10 +255,7 @@ mod tests {
 
     #[test]
     fn solana_cpi_is_call() {
-        assert_eq!(
-            GasCategory::from_step("invoke_signed_cpi", &VmKind::Solana),
-            GasCategory::Call
-        );
+        assert_eq!(GasCategory::from_step("invoke_signed_cpi", &VmKind::Solana), GasCategory::Call);
     }
 
     #[test]
@@ -300,9 +284,6 @@ mod tests {
 
     #[test]
     fn whitespace_is_trimmed() {
-        assert_eq!(
-            GasCategory::from_step("  SSTORE  ", &VmKind::Evm),
-            GasCategory::StorageWrite
-        );
+        assert_eq!(GasCategory::from_step("  SSTORE  ", &VmKind::Evm), GasCategory::StorageWrite);
     }
 }

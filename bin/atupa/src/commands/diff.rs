@@ -8,8 +8,8 @@ use atupa_core::config::AtupaConfig;
 use atupa_core::{DiffRow, TraceStep};
 use atupa_lido::LidoDeepTracer;
 use atupa_nitro::{NitroClient, StitchedReport};
-use atupa_parser::Parser as TraceParser;
 use atupa_parser::aggregator::Aggregator;
+use atupa_parser::Parser as TraceParser;
 use atupa_rpc::EthClient;
 
 use crate::cli::{OutputFormat, Protocol, VmTarget};
@@ -33,17 +33,11 @@ pub async fn cmd_diff(
     let base = normalise_hash(base);
     let target = normalise_hash(target);
 
-    eprintln!(
-        "{} {} {} {}",
-        "→ Base:  ".bold(),
-        base.cyan(),
-        "Target:".bold(),
-        target.yellow()
-    );
+    eprintln!("{} {} {} {}", "→ Base:  ".bold(), base.cyan(), "Target:".bold(), target.yellow());
     eprintln!("{} {}\n", "→ Endpoint:".bold(), config.rpc_url.dimmed());
 
-    let use_solana = matches!(vm, Some(VmTarget::Solana))
-        || (vm.is_none() && config.rpc_url.contains("solana"));
+    let use_solana =
+        matches!(vm, Some(VmTarget::Solana)) || (vm.is_none() && config.rpc_url.contains("solana"));
     let use_starknet = !use_solana
         && (matches!(vm, Some(VmTarget::Starknet))
             || (vm.is_none() && config.rpc_url.contains("starknet")));
@@ -105,20 +99,12 @@ fn calculate_generic_diff_data(args: &GenericDiffArgs) -> GenericDiffData {
     let base_cost = args.base_steps.iter().map(|s| s.gas_cost).sum::<u64>();
     let target_cost = args.target_steps.iter().map(|s| s.gas_cost).sum::<u64>();
     let cost_delta = target_cost as f64 - base_cost as f64;
-    let cost_pct = if base_cost > 0 {
-        cost_delta / base_cost as f64 * 100.0
-    } else {
-        0.0
-    };
+    let cost_pct = if base_cost > 0 { cost_delta / base_cost as f64 * 100.0 } else { 0.0 };
 
     let base_count = args.base_steps.len();
     let target_count = args.target_steps.len();
     let count_delta = target_count as f64 - base_count as f64;
-    let count_pct = if base_count > 0 {
-        count_delta / base_count as f64 * 100.0
-    } else {
-        0.0
-    };
+    let count_pct = if base_count > 0 { count_delta / base_count as f64 * 100.0 } else { 0.0 };
 
     GenericDiffData {
         base_cost,
@@ -135,12 +121,7 @@ fn calculate_generic_diff_data(args: &GenericDiffArgs) -> GenericDiffData {
 fn print_generic_diff_summary(args: &GenericDiffArgs, data: &GenericDiffData) {
     let div = "─".repeat(70).dimmed().to_string();
 
-    println!(
-        "{}",
-        format!("  {} EXECUTION DIFF", args.network_name)
-            .bold()
-            .underline()
-    );
+    println!("{}", format!("  {} EXECUTION DIFF", args.network_name).bold().underline());
     println!("{div}");
     println!(
         "  {:<25} {:<15} {:<15} {}",
@@ -154,17 +135,11 @@ fn print_generic_diff_summary(args: &GenericDiffArgs, data: &GenericDiffData) {
     let colorize_delta = |delta: f64, pct: f64| -> String {
         let sign = if delta >= 0.0 { "+" } else { "" };
         if delta > 0.0 {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
-                .red()
-                .to_string()
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").red().to_string()
         } else if delta < 0.0 {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
-                .green()
-                .to_string()
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").green().to_string()
         } else {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
-                .dimmed()
-                .to_string()
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").dimmed().to_string()
         }
     };
 
@@ -240,15 +215,9 @@ fn process_generic_diff(args: GenericDiffArgs) -> Result<()> {
         for f in &failures {
             println!("     - {}", f.red());
         }
-        return Err(anyhow::anyhow!(
-            "{} regression thresholds exceeded",
-            args.network_name
-        ));
+        return Err(anyhow::anyhow!("{} regression thresholds exceeded", args.network_name));
     } else if args.threshold.is_some() {
-        println!(
-            "\n  {} Execution cost within acceptable limits.",
-            "✅ [PASSED]".green().bold()
-        );
+        println!("\n  {} Execution cost within acceptable limits.", "✅ [PASSED]".green().bold());
     }
 
     Ok(())
@@ -387,16 +356,12 @@ async fn handle_nitro_diff(
     let eth_client = EthClient::new(config.rpc_url.clone());
 
     let pb = make_spinner("Fetching both traces and receipts concurrently…");
-    let (base_report, target_report) = tokio::try_join!(
-        client.trace_transaction(base),
-        client.trace_transaction(target),
-    )
-    .context("Failed to fetch one or both traces")?;
+    let (base_report, target_report) =
+        tokio::try_join!(client.trace_transaction(base), client.trace_transaction(target),)
+            .context("Failed to fetch one or both traces")?;
 
-    let (base_receipt_gas, target_receipt_gas) = tokio::join!(
-        eth_client.get_gas_used(base),
-        eth_client.get_gas_used(target),
-    );
+    let (base_receipt_gas, target_receipt_gas) =
+        tokio::join!(eth_client.get_gas_used(base), eth_client.get_gas_used(target),);
     pb.finish_with_message(format!("{} Both traces fetched.", "✔".green().bold()));
     eprintln!();
 
@@ -478,20 +443,14 @@ fn calculate_nitro_diff_data<'a>(
     let base_unified_cost = base_report.total_unified_cost;
     let target_unified_cost = target_report.total_unified_cost;
     let unified_delta = target_unified_cost - base_unified_cost;
-    let unified_pct = if base_unified_cost > 0.0 {
-        unified_delta / base_unified_cost * 100.0
-    } else {
-        0.0
-    };
+    let unified_pct =
+        if base_unified_cost > 0.0 { unified_delta / base_unified_cost * 100.0 } else { 0.0 };
 
     let base_total_gas = base_receipt_gas.unwrap_or(base_unified_cost as u64);
     let target_total_gas = target_receipt_gas.unwrap_or(target_unified_cost as u64);
     let total_gas_delta = target_total_gas as f64 - base_total_gas as f64;
-    let total_gas_pct = if base_total_gas > 0 {
-        total_gas_delta / base_total_gas as f64 * 100.0
-    } else {
-        0.0
-    };
+    let total_gas_pct =
+        if base_total_gas > 0 { total_gas_delta / base_total_gas as f64 * 100.0 } else { 0.0 };
 
     let base_intrinsic = base_total_gas.saturating_sub(base_unified_cost as u64);
     let target_intrinsic = target_total_gas.saturating_sub(target_unified_cost as u64);
@@ -499,20 +458,12 @@ fn calculate_nitro_diff_data<'a>(
     let base_evm = evm_count(&base_report);
     let tgt_evm = evm_count(&target_report);
     let evm_delta = tgt_evm as f64 - base_evm as f64;
-    let evm_pct = if base_evm > 0 {
-        evm_delta / base_evm as f64 * 100.0
-    } else {
-        0.0
-    };
+    let evm_pct = if base_evm > 0 { evm_delta / base_evm as f64 * 100.0 } else { 0.0 };
 
     let base_stylus = base_report.stylus_steps().len();
     let tgt_stylus = target_report.stylus_steps().len();
     let stylus_delta = tgt_stylus as f64 - base_stylus as f64;
-    let stylus_pct = if base_stylus > 0 {
-        stylus_delta / base_stylus as f64 * 100.0
-    } else {
-        0.0
-    };
+    let stylus_pct = if base_stylus > 0 { stylus_delta / base_stylus as f64 * 100.0 } else { 0.0 };
 
     NitroDiffData {
         base_tx,
@@ -556,17 +507,11 @@ fn print_nitro_diff_summary(data: &NitroDiffData) {
     let colorize_delta = |delta: f64, pct: f64| -> String {
         let sign = if delta >= 0.0 { "+" } else { "" };
         if delta > 0.0 {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
-                .red()
-                .to_string()
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").red().to_string()
         } else if delta < 0.0 {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
-                .green()
-                .to_string()
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").green().to_string()
         } else {
-            format!("{sign}{delta:.0} ({sign}{pct:.1}%)")
-                .dimmed()
-                .to_string()
+            format!("{sign}{delta:.0} ({sign}{pct:.1}%)").dimmed().to_string()
         }
     };
 
@@ -627,16 +572,9 @@ async fn handle_protocol_deep_diff(
     base_report: &StitchedReport,
     target_report: &StitchedReport,
 ) -> Result<(String, Vec<DiffRow>)> {
-    let base_steps: Vec<TraceStep> = base_report
-        .steps
-        .iter()
-        .map(|s| s.to_trace_step())
-        .collect();
-    let target_steps: Vec<TraceStep> = target_report
-        .steps
-        .iter()
-        .map(|s| s.to_trace_step())
-        .collect();
+    let base_steps: Vec<TraceStep> = base_report.steps.iter().map(|s| s.to_trace_step()).collect();
+    let target_steps: Vec<TraceStep> =
+        target_report.steps.iter().map(|s| s.to_trace_step()).collect();
 
     let report = match proto {
         Protocol::Aave => {
@@ -650,10 +588,7 @@ async fn handle_protocol_deep_diff(
     match report {
         Ok(r) => {
             let proto_div = "─".repeat(70).dimmed().to_string();
-            println!(
-                "\n  {} DEEP DIFF",
-                r.protocol.to_uppercase().bold().underline()
-            );
+            println!("\n  {} DEEP DIFF", r.protocol.to_uppercase().bold().underline());
             println!("{proto_div}");
             println!(
                 "  {:<28} {:<15} {:<15} {}",
@@ -744,13 +679,7 @@ fn generate_summary_table_rows(data: &NitroDiffData) -> String {
             data.unified_delta,
             data.unified_pct,
         ),
-        (
-            "EVM Steps",
-            data.base_evm as f64,
-            data.tgt_evm as f64,
-            data.evm_delta,
-            data.evm_pct,
-        ),
+        ("EVM Steps", data.base_evm as f64, data.tgt_evm as f64, data.evm_delta, data.evm_pct),
         (
             "Stylus Calls",
             data.base_stylus as f64,
@@ -792,24 +721,16 @@ fn generate_protocol_deep_diff_rows(proto_rows: &[DiffRow]) -> String {
 }
 
 fn generate_diff_svg(data: &NitroDiffData) -> Result<()> {
-    let base_steps: Vec<TraceStep> = data
-        .base_report
-        .steps
-        .iter()
-        .map(|s| s.to_trace_step())
-        .collect();
+    let base_steps: Vec<TraceStep> =
+        data.base_report.steps.iter().map(|s| s.to_trace_step()).collect();
     let registry = atupa::build_default_registry();
     let base_stacks = Aggregator::build_collapsed_stacks_with_registry(
         &TraceParser::normalize_raw(base_steps),
         &registry,
     );
 
-    let target_steps: Vec<TraceStep> = data
-        .target_report
-        .steps
-        .iter()
-        .map(|s| s.to_trace_step())
-        .collect();
+    let target_steps: Vec<TraceStep> =
+        data.target_report.steps.iter().map(|s| s.to_trace_step()).collect();
     let target_stacks = Aggregator::build_collapsed_stacks_with_registry(
         &TraceParser::normalize_raw(target_steps),
         &registry,
@@ -836,11 +757,9 @@ fn evaluate_thresholds(
     let config_toml = AtupaConfigToml::resolve(diff_config.as_deref());
 
     if let Some(t) = threshold {
-        if let Some(err) = crate::thresholds::DiffConfig::evaluate_simple_threshold(
-            "Gas",
-            data.total_gas_pct,
-            t,
-        ) {
+        if let Some(err) =
+            crate::thresholds::DiffConfig::evaluate_simple_threshold("Gas", data.total_gas_pct, t)
+        {
             failures.push(err);
         }
     } else if let Some(ref cfg) = config_toml

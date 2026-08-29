@@ -79,18 +79,9 @@ mod tests {
 
     #[test]
     fn static_resolver_is_case_insensitive() {
-        assert_eq!(
-            UniswapV4Adapter::resolve_hook_selector("0x18A9D381"),
-            Some("beforeInitialize")
-        );
-        assert_eq!(
-            UniswapV4Adapter::resolve_hook_selector("0x18a9d381"),
-            Some("beforeInitialize")
-        );
-        assert_eq!(
-            UniswapV4Adapter::resolve_hook_selector("  0xe82c3b75  "),
-            Some("beforeSwap")
-        );
+        assert_eq!(UniswapV4Adapter::resolve_hook_selector("0x18A9D381"), Some("beforeInitialize"));
+        assert_eq!(UniswapV4Adapter::resolve_hook_selector("0x18a9d381"), Some("beforeInitialize"));
+        assert_eq!(UniswapV4Adapter::resolve_hook_selector("  0xe82c3b75  "), Some("beforeSwap"));
     }
 
     #[test]

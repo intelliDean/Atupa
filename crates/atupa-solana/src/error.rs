@@ -36,9 +36,6 @@ mod tests {
         assert_eq!(err.to_string(), "Parsing error: missing logMessages");
 
         let err_timeout = SolanaError::Timeout("node did not respond in 30s".to_string());
-        assert_eq!(
-            err_timeout.to_string(),
-            "Timeout error: node did not respond in 30s"
-        );
+        assert_eq!(err_timeout.to_string(), "Timeout error: node did not respond in 30s");
     }
 }

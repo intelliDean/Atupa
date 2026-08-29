@@ -1,7 +1,7 @@
 //! Parser for mapping Stellar / Soroban diagnostic event streams to [`TraceStep`]s.
 
-use atupa_core::{TraceStep, VmKind};
 use crate::types::SorobanDiagnosticEvent;
+use atupa_core::{TraceStep, VmKind};
 
 /// Estimated gas costs for common Soroban host functions.
 pub const COST_PUT_CONTRACT_DATA: u64 = 5_000;

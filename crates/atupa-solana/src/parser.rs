@@ -73,11 +73,7 @@ fn handle_invoke(
     let addr = caps["addr"].to_string();
     let depth: u16 = caps["depth"].parse().unwrap_or(1);
 
-    let short_addr = if addr.len() > 8 {
-        &addr[0..8]
-    } else {
-        &addr
-    };
+    let short_addr = if addr.len() > 8 { &addr[0..8] } else { &addr };
 
     steps.push(TraceStep {
         pc: 0,
@@ -175,7 +171,8 @@ mod tests {
     fn parses_failed_invocation() {
         let logs = vec![
             "Program 11111111111111111111111111111111 invoke [1]".to_string(),
-            "Program 11111111111111111111111111111111 consumed 2500 of 200000 compute units".to_string(),
+            "Program 11111111111111111111111111111111 consumed 2500 of 200000 compute units"
+                .to_string(),
             "Program 11111111111111111111111111111111 failed".to_string(),
         ];
 

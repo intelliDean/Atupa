@@ -247,13 +247,11 @@ mod tests {
         .unwrap();
 
         match cli.command {
-            Commands::Capture {
-                tx,
-                output,
-                profile,
-                ..
-            } => {
-                assert_eq!(tx, "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+            Commands::Capture { tx, output, profile, .. } => {
+                assert_eq!(
+                    tx,
+                    "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+                );
                 assert_eq!(output, OutputFormat::Json);
                 assert!(profile);
             }
@@ -277,13 +275,7 @@ mod tests {
         .unwrap();
 
         match cli.command {
-            Commands::Diff {
-                base,
-                target,
-                threshold,
-                markdown,
-                ..
-            } => {
+            Commands::Diff { base, target, threshold, markdown, .. } => {
                 assert_eq!(base, "0xaaaa");
                 assert_eq!(target, "0xbbbb");
                 assert_eq!(threshold, Some(5.5));
@@ -293,4 +285,3 @@ mod tests {
         }
     }
 }
-
