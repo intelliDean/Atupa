@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { getDisplayLabel } from '../types/trace';
-import type { StitchedReport, UnifiedStep } from '../types/trace';
+import type { StitchedReport, UnifiedStep, VmKind } from '../types/trace';
 
 interface Props {
   report: StitchedReport;
@@ -8,28 +8,55 @@ interface Props {
 
 const PAGE_SIZE = 150;
 
-function StepRow({ step, report }: { step: UnifiedStep, report: StitchedReport }) {
+function formatStepCost(step: UnifiedStep): string {
+  if (step.vm === 'Solana') {
+    return step.cost_equiv > 0 ? `${step.cost_equiv} CU` : '';
+  }
+  if (step.vm === 'Starknet') {
+    return step.cost_equiv > 0 ? `${step.cost_equiv} steps` : '';
+  }
+  if (step.vm === 'Stellar') {
+    return step.cost_equiv > 0 ? `${step.cost_equiv} units` : '';
+  }
+  if (step.vm === 'Evm') {
+    return step.gas_cost > 0 ? `${step.gas_cost} gas` : '';
+  }
+  if (step.vm === 'Stylus') {
+    return step.cost_equiv > 0 ? `${step.cost_equiv.toFixed(1)} gas-equiv` : '';
+  }
+  return step.cost_equiv > 0 ? `${step.cost_equiv}` : '';
+}
+
+function getBadgeLabel(vm: VmKind): { text: string; className: string } {
+  switch (vm) {
+    case 'Evm':      return { text: 'EVM', className: 'evm' };
+    case 'Stylus':   return { text: 'WASM', className: 'stylus' };
+    case 'Solana':   return { text: 'SVM', className: 'solana' };
+    case 'Starknet': return { text: 'CAIRO', className: 'starknet' };
+    case 'Stellar':  return { text: 'SOROBAN', className: 'stellar' };
+  }
+}
+
+function StepRow({ step, report }: { step: UnifiedStep; report: StitchedReport }) {
   const indent = Array.from({ length: Math.max(0, step.depth - 1) }).map((_, i) => (
     <span key={i} className="trace-depth-indent" />
   ));
 
-  const costStr = step.vm === 'Evm'
-    ? step.gas_cost > 0 ? `${step.gas_cost} gas` : ''
-    : `${step.cost_equiv.toFixed(2)} gas-equiv`;
-
+  const costStr = formatStepCost(step);
   const displayLabel = getDisplayLabel(step, report);
   const isResolved = step.target_address && report.resolved_names[step.target_address];
+  const badge = getBadgeLabel(step.vm);
 
   return (
     <div
       className={`trace-step${step.is_vm_boundary ? ' is-boundary' : ''}`}
       role="listitem"
-      title={isResolved ? `Target: ${step.target_address}` : (step.is_vm_boundary ? 'EVM→WASM Boundary Crossing' : undefined)}
+      title={isResolved ? `Target: ${step.target_address}` : (step.is_vm_boundary ? 'Cross-VM / CPI Boundary Crossing' : undefined)}
     >
       <span className="trace-step-index">#{step.index}</span>
       {indent}
-      <span className={`trace-step-badge ${step.vm === 'Evm' ? 'evm' : 'stylus'}`}>
-        {step.vm === 'Evm' ? 'EVM' : 'WASM'}
+      <span className={`trace-step-badge ${badge.className}`}>
+        {badge.text}
       </span>
       <span className={`trace-step-label ${isResolved ? 'resolved' : ''}`}>{displayLabel}</span>
       {costStr && <span className="trace-step-cost">{costStr}</span>}
@@ -41,15 +68,23 @@ function StepRow({ step, report }: { step: UnifiedStep, report: StitchedReport }
 }
 
 export function TraceInspector({ report }: Props) {
-  const [filter, setFilter] = useState<'all' | 'evm' | 'stylus' | 'boundary'>('all');
+  const presentVms = useMemo(() => {
+    const set = new Set<VmKind>();
+    for (const s of report.steps) set.add(s.vm);
+    return Array.from(set);
+  }, [report]);
+
+  const [filter, setFilter] = useState<string>('all');
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
     return report.steps.filter((s: UnifiedStep) => {
-      if (filter === 'evm' && s.vm !== 'Evm') return false;
-      if (filter === 'stylus' && s.vm !== 'Stylus') return false;
-      if (filter === 'boundary' && !s.is_vm_boundary) return false;
+      if (filter === 'boundary') {
+        if (!s.is_vm_boundary) return false;
+      } else if (filter !== 'all') {
+        if (s.vm !== filter) return false;
+      }
       
       const label = getDisplayLabel(s, report).toLowerCase();
       if (search && !label.includes(search.toLowerCase())) return false;
@@ -76,21 +111,37 @@ export function TraceInspector({ report }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
       {/* Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', flexWrap: 'wrap' }}>
-        {(['all', 'evm', 'stylus', 'boundary'] as const).map((f) => (
+        <button
+          id="filter-all"
+          style={chipStyle(filter === 'all')}
+          onClick={() => { setFilter('all'); setPage(0); }}
+        >
+          All Steps ({report.steps.length})
+        </button>
+
+        {presentVms.length > 1 && presentVms.map((vm) => (
           <button
-            key={f}
-            id={`filter-${f}`}
-            style={chipStyle(filter === f)}
-            onClick={() => { setFilter(f); setPage(0); }}
+            key={vm}
+            id={`filter-${vm.toLowerCase()}`}
+            style={chipStyle(filter === vm)}
+            onClick={() => { setFilter(vm); setPage(0); }}
           >
-            {f === 'all' ? 'All Steps' : f === 'evm' ? 'EVM Only' : f === 'stylus' ? 'WASM Only' : 'Boundaries'}
+            {getBadgeLabel(vm).text} Only
           </button>
         ))}
+
+        <button
+          id="filter-boundary"
+          style={chipStyle(filter === 'boundary')}
+          onClick={() => { setFilter('boundary'); setPage(0); }}
+        >
+          Boundaries / CPI ({report.vm_boundary_count})
+        </button>
 
         <input
           id="trace-search"
           type="search"
-          placeholder="Search opcode / HostIO…"
+          placeholder="Search opcode / instruction / HostIO…"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0); }}
           style={{
@@ -103,42 +154,57 @@ export function TraceInspector({ report }: Props) {
             fontSize: 12,
             fontFamily: 'var(--font-mono)',
             outline: 'none',
-            width: 220,
+            width: 260,
           }}
         />
       </div>
 
-      {/* Step count */}
-      <div style={{ fontSize: 11, color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
-        Showing {visible.length} of {filtered.length} steps
-        {pageCount > 1 && ` (page ${page + 1}/${pageCount})`}
-      </div>
-
-      {/* Steps list */}
-      <div className="trace-list glass-card" role="list" style={{ maxHeight: 480, overflowY: 'auto', padding: 'var(--sp-3)' }}>
-        {visible.length === 0
-          ? <div style={{ color: 'var(--color-text-muted)', fontSize: 13, padding: 'var(--sp-4)' }}>No steps match your filter.</div>
-          : visible.map((s) => <StepRow key={s.index} step={s} report={report} />)
-        }
+      {/* Steps List */}
+      <div className="trace-list" role="list">
+        {visible.length === 0 ? (
+          <div style={{ padding: 'var(--sp-4)', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 13 }}>
+            No steps matching filter or search.
+          </div>
+        ) : (
+          visible.map((step) => <StepRow key={step.index} step={step} report={report} />)
+        )}
       </div>
 
       {/* Pagination */}
       {pageCount > 1 && (
-        <div style={{ display: 'flex', gap: 'var(--sp-2)', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="trace-pagination">
           <button
-            id="page-prev"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            id="trace-prev"
             disabled={page === 0}
-            style={chipStyle(false)}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            style={{
+              padding: '4px 10px',
+              background: 'var(--color-bg-raised)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 4,
+              color: 'var(--color-text-secondary)',
+              cursor: page === 0 ? 'not-allowed' : 'pointer',
+              opacity: page === 0 ? 0.4 : 1,
+            }}
           >
             ← Prev
           </button>
-          <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{page + 1} / {pageCount}</span>
+          <span>
+            Page {page + 1} of {pageCount} ({filtered.length} total)
+          </span>
           <button
-            id="page-next"
+            id="trace-next"
+            disabled={page >= pageCount - 1}
             onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-            disabled={page === pageCount - 1}
-            style={chipStyle(false)}
+            style={{
+              padding: '4px 10px',
+              background: 'var(--color-bg-raised)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 4,
+              color: 'var(--color-text-secondary)',
+              cursor: page >= pageCount - 1 ? 'not-allowed' : 'pointer',
+              opacity: page >= pageCount - 1 ? 0.4 : 1,
+            }}
           >
             Next →
           </button>

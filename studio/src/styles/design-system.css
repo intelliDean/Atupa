@@ -398,6 +398,21 @@ body {
   color: var(--badge-stylus-color);
 }
 
+.trace-step-badge.solana {
+  background: rgba(47, 228, 196, 0.15);
+  color: #2fe4c4;
+}
+
+.trace-step-badge.starknet {
+  background: rgba(167, 139, 250, 0.15);
+  color: #a78bfa;
+}
+
+.trace-step-badge.stellar {
+  background: rgba(96, 217, 255, 0.15);
+  color: #60d9ff;
+}
+
 .trace-step-label {
   font-family: var(--font-mono);
   font-size: 12px;
