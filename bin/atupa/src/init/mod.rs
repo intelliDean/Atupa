@@ -12,7 +12,7 @@ use std::path::Path;
 pub mod detector;
 pub mod templates;
 
-pub use detector::{detect_project, detect_protocol, ProjectKind};
+pub use detector::{ProjectKind, detect_project, detect_protocol};
 pub use templates::*;
 
 /// Command-line arguments for the `init` subcommand.
@@ -30,12 +30,20 @@ pub fn execute_init(args: InitArgs) -> Result<()> {
 
     // ── Detect Project ────────────────────────────────────────────────────────
     let kind = detect_project();
-    println!("  {} {}", "🔍 Detected project type:".bold(), kind.label().cyan().bold());
+    println!(
+        "  {} {}",
+        "🔍 Detected project type:".bold(),
+        kind.label().cyan().bold()
+    );
 
     // Attempt to detect protocol
     let protocol = detect_protocol();
     if let Some(p) = &protocol {
-        println!("  {} {}", "💉 Detected protocol adapter:".bold(), p.cyan().bold());
+        println!(
+            "  {} {}",
+            "💉 Detected protocol adapter:".bold(),
+            p.cyan().bold()
+        );
     }
     println!();
 
@@ -50,7 +58,13 @@ pub fn execute_init(args: InitArgs) -> Result<()> {
         ProjectKind::Unknown => ATUPA_TOML_FOUNDRY,
     };
 
-    scaffold_file("atupa.toml", toml_content, args.force, &mut created, &mut skipped)?;
+    scaffold_file(
+        "atupa.toml",
+        toml_content,
+        args.force,
+        &mut created,
+        &mut skipped,
+    )?;
 
     // ── 2. .github/workflows/atupa.yml ───────────────────────────────────────
     let workflow_dir = Path::new(".github/workflows");
@@ -145,7 +159,11 @@ pub fn execute_init(args: InitArgs) -> Result<()> {
         "3.".bold()
     );
     println!();
-    println!("  {}  {}", "Docs:".dimmed(), "https://github.com/One-Block-Org/Atupa".dimmed());
+    println!(
+        "  {}  {}",
+        "Docs:".dimmed(),
+        "https://github.com/One-Block-Org/Atupa".dimmed()
+    );
     println!();
 
     Ok(())

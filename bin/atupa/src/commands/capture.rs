@@ -7,8 +7,8 @@ use std::collections::{HashMap, HashSet};
 use atupa_core::config::AtupaConfig;
 use atupa_nitro::{NitroClient, StitchedReport, UnifiedStep, VmKind};
 use atupa_output::SvgGenerator;
-use atupa_parser::aggregator::Aggregator;
 use atupa_parser::Parser as TraceParser;
+use atupa_parser::aggregator::Aggregator;
 use atupa_rpc::EthClient;
 
 use crate::banner::hostio_category_color;
@@ -77,8 +77,11 @@ async fn handle_starknet_capture(
         steps.len().to_string().cyan().bold()
     ));
 
-    let svg_path =
-        if generate_profile { Some(generate_and_save_svg(&steps, tx, &file)?) } else { None };
+    let svg_path = if generate_profile {
+        Some(generate_and_save_svg(&steps, tx, &file)?)
+    } else {
+        None
+    };
 
     let pb_render = make_spinner("Rendering report…");
     let report = trace_steps_to_report(tx, steps, VmKind::Starknet);
@@ -118,8 +121,11 @@ async fn handle_solana_capture(
         steps.len().to_string().cyan().bold()
     ));
 
-    let svg_path =
-        if generate_profile { Some(generate_and_save_svg(&steps, tx, &file)?) } else { None };
+    let svg_path = if generate_profile {
+        Some(generate_and_save_svg(&steps, tx, &file)?)
+    } else {
+        None
+    };
 
     let pb_render = make_spinner("Rendering report…");
     let report = trace_steps_to_report(tx, steps, VmKind::Solana);
@@ -158,8 +164,11 @@ async fn handle_stellar_capture(
         steps.len().to_string().cyan().bold()
     ));
 
-    let svg_path =
-        if generate_profile { Some(generate_and_save_svg(&steps, tx, &file)?) } else { None };
+    let svg_path = if generate_profile {
+        Some(generate_and_save_svg(&steps, tx, &file)?)
+    } else {
+        None
+    };
 
     let pb_render = make_spinner("Rendering report…");
     let report = trace_steps_to_report(tx, steps, VmKind::Stellar);
@@ -200,7 +209,10 @@ async fn handle_nitro_capture(
         network_name.cyan().bold(),
         evm_count(&report).to_string().green(),
         if report.total_stylus_ink > 0 {
-            format!(" + {} Stylus HostIOs", report.stylus_steps().len().to_string().yellow())
+            format!(
+                " + {} Stylus HostIOs",
+                report.stylus_steps().len().to_string().yellow()
+            )
         } else {
             "".into()
         }
@@ -297,11 +309,17 @@ fn render_capture_summary(report: &StitchedReport) -> String {
     out += &format!(
         "  {:<34} {}\n{}\n",
         "TOTAL UNIFIED COST:".bold().cyan(),
-        format!("{:.2} gas", report.total_unified_cost).cyan().bold(),
+        format!("{:.2} gas", report.total_unified_cost)
+            .cyan()
+            .bold(),
         div
     );
 
-    out += &format!("  {:<34} {}\n", "EVM Steps:".bold(), evm_count(report).to_string().green());
+    out += &format!(
+        "  {:<34} {}\n",
+        "EVM Steps:".bold(),
+        evm_count(report).to_string().green()
+    );
 
     let stylus = report.stylus_steps();
     if !stylus.is_empty() {
@@ -375,10 +393,16 @@ fn render_stylus_summary(report: &StitchedReport, stylus: &[&UnifiedStep], div: 
     let total_ink_gas: f64 = aggregated.iter().map(|(_, c)| c).sum();
     let unique_paths = aggregated.len();
 
-    out +=
-        &format!("  {:<34} {}\n", "Stylus HostIO Calls:".bold(), stylus.len().to_string().yellow());
-    out +=
-        &format!("  {:<34} {}\n", "Unique HostIO Paths:".bold(), unique_paths.to_string().yellow());
+    out += &format!(
+        "  {:<34} {}\n",
+        "Stylus HostIO Calls:".bold(),
+        stylus.len().to_string().yellow()
+    );
+    out += &format!(
+        "  {:<34} {}\n",
+        "Unique HostIO Paths:".bold(),
+        unique_paths.to_string().yellow()
+    );
 
     if report.vm_boundary_count > 0 {
         out += &format!("  {}\n", "EVM→WASM Boundary Details:".bold());
@@ -417,7 +441,11 @@ fn render_hot_paths(aggregated: &[(String, f64)], total_ink_gas: f64) -> String 
 
     for (label, cost_gas) in aggregated.iter().take(10) {
         let cost_ink = (cost_gas * 10_000.0) as u64;
-        let pct = if total_ink_gas > 0.0 { cost_gas / total_ink_gas * 100.0 } else { 0.0 };
+        let pct = if total_ink_gas > 0.0 {
+            cost_gas / total_ink_gas * 100.0
+        } else {
+            0.0
+        };
         let color = hostio_category_color(label);
         let gas_str = format!("{:.0}", cost_gas);
         out += &format!(
@@ -439,12 +467,18 @@ fn render_ascii_flamegraph(
     out += "  root ██████████████████████████████████████████████████ 100%\n";
 
     for (label, cost_gas) in aggregated.iter().take(5) {
-        let pct = if total_ink_gas > 0.0 { cost_gas / total_ink_gas * 100.0 } else { 0.0 };
+        let pct = if total_ink_gas > 0.0 {
+            cost_gas / total_ink_gas * 100.0
+        } else {
+            0.0
+        };
         let bar_width = (pct / 2.0) as usize;
         let bar = "█".repeat(bar_width);
         let color = hostio_category_color(label);
-        out +=
-            &format!("  └─ {color}{:<20}{reset} {color}{:<50}{reset} {:>5.1}%\n", label, bar, pct);
+        out += &format!(
+            "  └─ {color}{:<20}{reset} {color}{:<50}{reset} {:>5.1}%\n",
+            label, bar, pct
+        );
     }
     if unique_paths > 10 {
         out += &format!("\n   ({} of {} unique paths shown)\n", 10, unique_paths);
@@ -502,10 +536,18 @@ fn finalize_report(
     std::fs::write(&report_path, json_for_disk)
         .with_context(|| format!("Failed to write report to '{report_path}'"))?;
 
-    eprintln!("{} Report saved to {}", "✔".green().bold(), report_path.cyan().bold());
+    eprintln!(
+        "{} Report saved to {}",
+        "✔".green().bold(),
+        report_path.cyan().bold()
+    );
 
     if let Some(svg) = svg_path {
-        eprintln!("{} SVG profile saved to {}", "✔".green().bold(), svg.cyan().bold());
+        eprintln!(
+            "{} SVG profile saved to {}",
+            "✔".green().bold(),
+            svg.cyan().bold()
+        );
     }
 
     Ok(report_path)

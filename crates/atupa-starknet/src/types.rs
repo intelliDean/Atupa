@@ -77,7 +77,10 @@ mod tests {
         let empty = ExecutionResources::default();
         assert!(!empty.has_builtins());
 
-        let with_poseidon = ExecutionResources { poseidon_builtin: 5, ..Default::default() };
+        let with_poseidon = ExecutionResources {
+            poseidon_builtin: 5,
+            ..Default::default()
+        };
         assert!(with_poseidon.has_builtins());
     }
 

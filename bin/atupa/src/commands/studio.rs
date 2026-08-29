@@ -47,7 +47,11 @@ pub async fn cmd_studio(
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
 
-    eprintln!("{} Studio ready at {}", "✔".green().bold(), url.cyan().bold());
+    eprintln!(
+        "{} Studio ready at {}",
+        "✔".green().bold(),
+        url.cyan().bold()
+    );
 
     // 3. Open browser
     if launch_browser && let Err(e) = open::that(&url) {

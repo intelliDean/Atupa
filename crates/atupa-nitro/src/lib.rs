@@ -32,7 +32,7 @@ pub mod types;
 
 // ── Flat re-exports ───────────────────────────────────────────────────────────
 
-pub use client::{is_nitro_chain, NitroClient};
+pub use client::{NitroClient, is_nitro_chain};
 pub use error::{NitroError, NitroResult};
-pub use stitcher::{MixedTraceStitcher, CALL_OPCODES};
+pub use stitcher::{CALL_OPCODES, MixedTraceStitcher};
 pub use types::{StitchedReport, StylusHostIO, UnifiedStep, VmKind};

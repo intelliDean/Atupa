@@ -6,7 +6,7 @@ use atupa_core::TraceStep;
 use serde::{Deserialize, Serialize};
 
 use crate::adapter::AaveV3Adapter;
-use crate::selectors::{is_call_opcode, selector_from_stack, LIQUIDATION_EFFICIENCY_BASE};
+use crate::selectors::{LIQUIDATION_EFFICIENCY_BASE, is_call_opcode, selector_from_stack};
 
 // ─── Report Structures ────────────────────────────────────────────────────────
 
@@ -130,7 +130,11 @@ impl LiquidationAccumulator {
             self.oracle_calls += 1;
         }
 
-        self.labeled_calls.push(LabeledCall { depth: step.depth, label, gas_cost: step.gas_cost });
+        self.labeled_calls.push(LabeledCall {
+            depth: step.depth,
+            label,
+            gas_cost: step.gas_cost,
+        });
     }
 
     /// Consume the accumulator and produce the final [`LiquidationReport`].

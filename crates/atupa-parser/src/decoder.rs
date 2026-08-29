@@ -79,7 +79,10 @@ mod tests {
             "0x1000".to_string(),                                                             // gas
         ];
         let addr = extract_target_address(&stack);
-        assert_eq!(addr, Some("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string()));
+        assert_eq!(
+            addr,
+            Some("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string())
+        );
     }
 
     #[test]

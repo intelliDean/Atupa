@@ -36,7 +36,10 @@ use commands::{cmd_audit, cmd_capture, cmd_diff, cmd_profile, cmd_studio};
 async fn main() -> Result<()> {
     let args = std::env::args_os();
 
-    env_logger::builder().filter_level(log::LevelFilter::Warn).parse_default_env().init();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Warn)
+        .parse_default_env()
+        .init();
 
     let cli = Cli::parse_from(args);
     let mut config = AtupaConfig::load();
@@ -48,13 +51,27 @@ async fn main() -> Result<()> {
     print_banner();
 
     match cli.command {
-        Commands::Profile { tx, demo, out, etherscan_key, vm } => {
+        Commands::Profile {
+            tx,
+            demo,
+            out,
+            etherscan_key,
+            vm,
+        } => {
             if let Some(key) = etherscan_key {
                 config.etherscan_key = Some(key);
             }
             cmd_profile(&config, &tx, demo, out, vm).await?;
         }
-        Commands::Capture { tx, output, file, profile, etherscan_key, studio, vm } => {
+        Commands::Capture {
+            tx,
+            output,
+            file,
+            profile,
+            etherscan_key,
+            studio,
+            vm,
+        } => {
             if let Some(key) = etherscan_key {
                 config.etherscan_key = Some(key);
             }

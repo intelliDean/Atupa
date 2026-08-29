@@ -18,7 +18,10 @@ pub struct StellarClient {
 impl StellarClient {
     /// Creates a new [`StellarClient`] pointing to the specified Stellar/Soroban RPC endpoint.
     pub fn new(rpc_url: impl Into<String>) -> Self {
-        Self { rpc_url: rpc_url.into(), client: Client::new() }
+        Self {
+            rpc_url: rpc_url.into(),
+            client: Client::new(),
+        }
     }
 
     /// Returns the target RPC URL.
@@ -46,7 +49,10 @@ impl StellarClient {
 
         if let Some(error) = response.get("error") {
             return Err(StellarError::Rpc(RpcError::Node(
-                error["message"].as_str().unwrap_or("Unknown RPC error").to_string(),
+                error["message"]
+                    .as_str()
+                    .unwrap_or("Unknown RPC error")
+                    .to_string(),
             )));
         }
 

@@ -21,10 +21,19 @@ pub(crate) const LIDO_SELECTORS: &[(&str, &str)] = &[
 
 /// Known Lido protocol contract addresses (Ethereum Mainnet, stored lowercase).
 pub(crate) const LIDO_ADDRESSES: &[(&str, &str)] = &[
-    ("0xae7ab96520de3a18e5e111b5eaab095312d7fe84", "stETH (Lido Core)"),
-    ("0x55032650b14df07b85bf18a3a3ec8e0af2e028d5", "NodeOperatorsRegistry"),
+    (
+        "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+        "stETH (Lido Core)",
+    ),
+    (
+        "0x55032650b14df07b85bf18a3a3ec8e0af2e028d5",
+        "NodeOperatorsRegistry",
+    ),
     ("0x442af752419395f27ed54a848524a30028962bb2", "LidoOracle"),
-    ("0x889edc2bf57978ed079b851d273218ee42a2b349", "WithdrawalQueue"),
+    (
+        "0x889edc2bf57978ed079b851d273218ee42a2b349",
+        "WithdrawalQueue",
+    ),
     ("0x852f970761d74367f33b6c2e309a29d681e2f16a", "LegacyOracle"),
     ("0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", "wstETH"),
 ];
@@ -78,11 +87,26 @@ mod tests {
 
     #[test]
     fn resolve_selector_exact_and_prefixed() {
-        assert_eq!(resolve_selector("0xa1903eab"), Some("stETH::submit".to_string()));
-        assert_eq!(resolve_selector("a1903eab"), Some("stETH::submit".to_string()));
-        assert_eq!(resolve_selector("0xA1903EAB"), Some("stETH::submit".to_string()));
-        assert_eq!(resolve_selector("0x0a19ea81"), Some("stETH::wrap".to_string()));
-        assert_eq!(resolve_selector("0x1dfab2e1"), Some("stETH::unwrap".to_string()));
+        assert_eq!(
+            resolve_selector("0xa1903eab"),
+            Some("stETH::submit".to_string())
+        );
+        assert_eq!(
+            resolve_selector("a1903eab"),
+            Some("stETH::submit".to_string())
+        );
+        assert_eq!(
+            resolve_selector("0xA1903EAB"),
+            Some("stETH::submit".to_string())
+        );
+        assert_eq!(
+            resolve_selector("0x0a19ea81"),
+            Some("stETH::wrap".to_string())
+        );
+        assert_eq!(
+            resolve_selector("0x1dfab2e1"),
+            Some("stETH::unwrap".to_string())
+        );
     }
 
     #[test]

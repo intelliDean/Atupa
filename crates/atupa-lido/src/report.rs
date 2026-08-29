@@ -126,7 +126,8 @@ impl LidoAccumulator {
 
     /// Produce the final [`LidoReport`].
     pub(crate) fn into_report(mut self, tx_hash: &str, reverted: bool) -> LidoReport {
-        self.labeled_calls.dedup_by(|a, b| a.label == b.label && a.depth == b.depth);
+        self.labeled_calls
+            .dedup_by(|a, b| a.label == b.label && a.depth == b.depth);
 
         LidoReport {
             tx_hash: tx_hash.to_string(),

@@ -4,8 +4,8 @@ use atupa_core::{CollapsedStack, VmKind};
 use std::collections::HashMap;
 
 use crate::common::{
-    render_empty_svg, stack_leaf, truncate_label, BAR_GAP, BAR_HEIGHT, CHART_WIDTH,
-    DIFF_HEADER_HEIGHT, MIN_BAR_PX, PADDING_LEFT, SEPARATOR_HEIGHT, SVG_WIDTH,
+    BAR_GAP, BAR_HEIGHT, CHART_WIDTH, DIFF_HEADER_HEIGHT, MIN_BAR_PX, PADDING_LEFT,
+    SEPARATOR_HEIGHT, SVG_WIDTH, render_empty_svg, stack_leaf, truncate_label,
 };
 
 /// Internal merged entry representing a unique stack path across baseline and target.
@@ -31,15 +31,22 @@ pub fn generate_diff_flamegraph(
     let merged = merge_diff_entries(baseline_stacks, target_stacks);
     let entries: Vec<&DiffEntry> = merged.values().collect();
 
-    if entries.is_empty() || entries.iter().all(|e| e.baseline_weight == 0 && e.target_weight == 0)
+    if entries.is_empty()
+        || entries
+            .iter()
+            .all(|e| e.baseline_weight == 0 && e.target_weight == 0)
     {
         return Ok(render_empty_svg("No execution data found for diff."));
     }
 
-    let evm_entries: Vec<&&DiffEntry> =
-        entries.iter().filter(|e| e.vm_kind != VmKind::Stylus).collect();
-    let mut wasm_entries: Vec<&&DiffEntry> =
-        entries.iter().filter(|e| e.vm_kind == VmKind::Stylus).collect();
+    let evm_entries: Vec<&&DiffEntry> = entries
+        .iter()
+        .filter(|e| e.vm_kind != VmKind::Stylus)
+        .collect();
+    let mut wasm_entries: Vec<&&DiffEntry> = entries
+        .iter()
+        .filter(|e| e.vm_kind == VmKind::Stylus)
+        .collect();
     let has_wasm = !wasm_entries.is_empty();
 
     let mut depths: Vec<u16> = evm_entries.iter().map(|e| e.depth).collect();
@@ -55,8 +62,10 @@ pub fn generate_diff_flamegraph(
             evm_entries.iter().filter(|e| e.depth == *depth).collect();
         lane_entries.sort_by(|a, b| a.stack.cmp(&b.stack));
 
-        let lane_weight: u64 =
-            lane_entries.iter().map(|e| std::cmp::max(e.baseline_weight, e.target_weight)).sum();
+        let lane_weight: u64 = lane_entries
+            .iter()
+            .map(|e| std::cmp::max(e.baseline_weight, e.target_weight))
+            .sum();
         if lane_weight == 0 {
             continue;
         }
@@ -92,8 +101,10 @@ pub fn generate_diff_flamegraph(
             SVG_WIDTH / 2.0, current_y - 10.0
         ));
 
-        let global_wasm_weight: u64 =
-            wasm_entries.iter().map(|e| std::cmp::max(e.baseline_weight, e.target_weight)).sum();
+        let global_wasm_weight: u64 = wasm_entries
+            .iter()
+            .map(|e| std::cmp::max(e.baseline_weight, e.target_weight))
+            .sum();
         wasm_entries.sort_by(|a, b| a.stack.cmp(&b.stack));
 
         let mut bar_x = PADDING_LEFT;

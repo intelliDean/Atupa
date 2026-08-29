@@ -1,8 +1,8 @@
 //! [`AtupaConfig`] — runtime configuration with multi-source merging and validation.
 
 use figment::{
-    providers::{Env, Format, Serialized, Toml},
     Figment,
+    providers::{Env, Format, Serialized, Toml},
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -123,19 +123,34 @@ mod tests {
 
     #[test]
     fn validate_rejects_empty_rpc_url() {
-        let cfg = AtupaConfig { rpc_url: String::new(), ..Default::default() };
-        assert!(cfg.validate().is_err(), "empty rpc_url should fail validation");
+        let cfg = AtupaConfig {
+            rpc_url: String::new(),
+            ..Default::default()
+        };
+        assert!(
+            cfg.validate().is_err(),
+            "empty rpc_url should fail validation"
+        );
     }
 
     #[test]
     fn validate_rejects_whitespace_only_rpc_url() {
-        let cfg = AtupaConfig { rpc_url: "   ".to_string(), ..Default::default() };
-        assert!(cfg.validate().is_err(), "whitespace-only rpc_url should fail validation");
+        let cfg = AtupaConfig {
+            rpc_url: "   ".to_string(),
+            ..Default::default()
+        };
+        assert!(
+            cfg.validate().is_err(),
+            "whitespace-only rpc_url should fail validation"
+        );
     }
 
     #[test]
     fn validate_accepts_default_config() {
-        assert!(AtupaConfig::default().validate().is_ok(), "default config should pass validation");
+        assert!(
+            AtupaConfig::default().validate().is_ok(),
+            "default config should pass validation"
+        );
     }
 
     #[test]

@@ -45,7 +45,10 @@ impl NitroClient {
 
         if let Some(error) = response.get("error") {
             return Err(NitroError::Rpc(RpcError::Node(
-                error["message"].as_str().unwrap_or("Unknown RPC error").to_string(),
+                error["message"]
+                    .as_str()
+                    .unwrap_or("Unknown RPC error")
+                    .to_string(),
             )));
         }
 
@@ -79,7 +82,10 @@ impl NitroClient {
                 self.get_stylus_trace(tx_hash),
             )
         } else {
-            (self.base_client.get_transaction_trace(tx_hash).await, Ok(Vec::new()))
+            (
+                self.base_client.get_transaction_trace(tx_hash).await,
+                Ok(Vec::new()),
+            )
         };
 
         let evm_trace = evm_result?;

@@ -212,7 +212,10 @@ pub struct StitchedReport {
 impl StitchedReport {
     /// Returns references to only the Stylus/WASM steps.
     pub fn stylus_steps(&self) -> Vec<&UnifiedStep> {
-        self.steps.iter().filter(|s| s.vm == VmKind::Stylus).collect()
+        self.steps
+            .iter()
+            .filter(|s| s.vm == VmKind::Stylus)
+            .collect()
     }
 
     /// Returns references to only the EVM steps.

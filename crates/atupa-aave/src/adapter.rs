@@ -60,7 +60,10 @@ mod tests {
     #[test]
     fn resolves_gho_selector() {
         let adapter = AaveV3Adapter;
-        assert_eq!(adapter.resolve_label(None, Some("0x40c10f19")), Some("GHO::mint".to_string()));
+        assert_eq!(
+            adapter.resolve_label(None, Some("0x40c10f19")),
+            Some("GHO::mint".to_string())
+        );
     }
 
     #[test]
@@ -85,8 +88,10 @@ mod tests {
     fn address_takes_priority_over_selector() {
         // When both are provided, address resolution should win.
         let adapter = AaveV3Adapter;
-        let label = adapter
-            .resolve_label(Some("0x5513224daaeabca31af5280727878d52097afa05"), Some("0x00a718a9"));
+        let label = adapter.resolve_label(
+            Some("0x5513224daaeabca31af5280727878d52097afa05"),
+            Some("0x00a718a9"),
+        );
         assert!(label.as_deref().unwrap_or("").starts_with("Facilitator::"));
     }
 

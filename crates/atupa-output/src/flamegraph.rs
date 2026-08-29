@@ -4,8 +4,8 @@ use askama::Template;
 use atupa_core::{CollapsedStack, VmKind};
 
 use crate::common::{
-    render_empty_svg, stack_leaf, truncate_label, BAR_GAP, BAR_HEIGHT, CHART_WIDTH, HEADER_HEIGHT,
-    MIN_BAR_PX, PADDING_LEFT, SEPARATOR_HEIGHT, SVG_WIDTH,
+    BAR_GAP, BAR_HEIGHT, CHART_WIDTH, HEADER_HEIGHT, MIN_BAR_PX, PADDING_LEFT, SEPARATOR_HEIGHT,
+    SVG_WIDTH, render_empty_svg, stack_leaf, truncate_label,
 };
 
 // ─── Template Types ───────────────────────────────────────────────────────────
@@ -54,10 +54,14 @@ impl SvgGenerator {
             return Ok(render_empty_svg("No execution data found."));
         }
 
-        let evm_stacks: Vec<&CollapsedStack> =
-            stacks.iter().filter(|s| s.vm_kind != VmKind::Stylus).collect();
-        let wasm_stacks: Vec<&CollapsedStack> =
-            stacks.iter().filter(|s| s.vm_kind == VmKind::Stylus).collect();
+        let evm_stacks: Vec<&CollapsedStack> = stacks
+            .iter()
+            .filter(|s| s.vm_kind != VmKind::Stylus)
+            .collect();
+        let wasm_stacks: Vec<&CollapsedStack> = stacks
+            .iter()
+            .filter(|s| s.vm_kind == VmKind::Stylus)
+            .collect();
         let has_wasm = !wasm_stacks.is_empty();
 
         let global_evm_weight: u64 = evm_stacks.iter().map(|s| s.weight).sum();
@@ -71,7 +75,12 @@ impl SvgGenerator {
 
         // 2. Layout Stylus/WASM section if present
         if has_wasm {
-            layout_wasm_section(&wasm_stacks, global_wasm_weight, &mut entries, &mut current_y);
+            layout_wasm_section(
+                &wasm_stacks,
+                global_wasm_weight,
+                &mut entries,
+                &mut current_y,
+            );
         }
 
         let has_starknet = evm_stacks.iter().any(|s| s.vm_kind == VmKind::Starknet);
@@ -222,14 +231,23 @@ fn make_bar_label(stack: &CollapsedStack, bar_w: f64) -> String {
 }
 
 fn build_tooltip(stack: &CollapsedStack, global_weight: u64) -> String {
-    let pct =
-        if global_weight > 0 { stack.weight as f64 / global_weight as f64 * 100.0 } else { 0.0 };
+    let pct = if global_weight > 0 {
+        stack.weight as f64 / global_weight as f64 * 100.0
+    } else {
+        0.0
+    };
 
     let leaf = stack_leaf(&stack.stack);
     if stack.reverted {
-        format!("REVERTED — {} | depth {} | {} gas ({:.1}%)", leaf, stack.depth, stack.weight, pct)
+        format!(
+            "REVERTED — {} | depth {} | {} gas ({:.1}%)",
+            leaf, stack.depth, stack.weight, pct
+        )
     } else {
-        format!("{} | depth {} | {} gas ({:.1}%)", leaf, stack.depth, stack.weight, pct)
+        format!(
+            "{} | depth {} | {} gas ({:.1}%)",
+            leaf, stack.depth, stack.weight, pct
+        )
     }
 }
 

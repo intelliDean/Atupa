@@ -88,8 +88,16 @@ mod tests {
     #[test]
     fn normalize_raw_marks_revert_flag() {
         let steps = vec![
-            TraceStep { op: "ADD".to_string(), reverted: false, ..Default::default() },
-            TraceStep { op: "INVALID".to_string(), reverted: false, ..Default::default() },
+            TraceStep {
+                op: "ADD".to_string(),
+                reverted: false,
+                ..Default::default()
+            },
+            TraceStep {
+                op: "INVALID".to_string(),
+                reverted: false,
+                ..Default::default()
+            },
         ];
 
         let normalized = Parser::normalize_raw(steps);

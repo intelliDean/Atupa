@@ -120,7 +120,10 @@ impl GasCategory {
                 (&["read", "load", "get_account"], Self::StorageRead),
                 (&["hash", "keccak", "secp256k1", "ed25519"], Self::Crypto),
                 (&["invoke", "cpi", "call"], Self::Call),
-                (&["compute", "log", "instruction", "syscall"], Self::Execution),
+                (
+                    &["compute", "log", "instruction", "syscall"],
+                    Self::Execution,
+                ),
             ],
         )
     }
@@ -166,46 +169,106 @@ mod tests {
 
     #[test]
     fn evm_storage_ops() {
-        assert_eq!(GasCategory::from_step("SSTORE", &VmKind::Evm), GasCategory::StorageWrite);
-        assert_eq!(GasCategory::from_step("TSTORE", &VmKind::Evm), GasCategory::StorageWrite);
-        assert_eq!(GasCategory::from_step("SLOAD", &VmKind::Evm), GasCategory::StorageRead);
-        assert_eq!(GasCategory::from_step("TLOAD", &VmKind::Evm), GasCategory::StorageRead);
+        assert_eq!(
+            GasCategory::from_step("SSTORE", &VmKind::Evm),
+            GasCategory::StorageWrite
+        );
+        assert_eq!(
+            GasCategory::from_step("TSTORE", &VmKind::Evm),
+            GasCategory::StorageWrite
+        );
+        assert_eq!(
+            GasCategory::from_step("SLOAD", &VmKind::Evm),
+            GasCategory::StorageRead
+        );
+        assert_eq!(
+            GasCategory::from_step("TLOAD", &VmKind::Evm),
+            GasCategory::StorageRead
+        );
     }
 
     #[test]
     fn evm_memory_ops() {
-        assert_eq!(GasCategory::from_step("MLOAD", &VmKind::Evm), GasCategory::Memory);
-        assert_eq!(GasCategory::from_step("MSTORE", &VmKind::Evm), GasCategory::Memory);
-        assert_eq!(GasCategory::from_step("MCOPY", &VmKind::Evm), GasCategory::Memory);
+        assert_eq!(
+            GasCategory::from_step("MLOAD", &VmKind::Evm),
+            GasCategory::Memory
+        );
+        assert_eq!(
+            GasCategory::from_step("MSTORE", &VmKind::Evm),
+            GasCategory::Memory
+        );
+        assert_eq!(
+            GasCategory::from_step("MCOPY", &VmKind::Evm),
+            GasCategory::Memory
+        );
     }
 
     #[test]
     fn evm_crypto_ops() {
-        assert_eq!(GasCategory::from_step("KECCAK256", &VmKind::Evm), GasCategory::Crypto);
-        assert_eq!(GasCategory::from_step("SHA3", &VmKind::Evm), GasCategory::Crypto);
+        assert_eq!(
+            GasCategory::from_step("KECCAK256", &VmKind::Evm),
+            GasCategory::Crypto
+        );
+        assert_eq!(
+            GasCategory::from_step("SHA3", &VmKind::Evm),
+            GasCategory::Crypto
+        );
     }
 
     #[test]
     fn evm_call_ops() {
-        assert_eq!(GasCategory::from_step("CALL", &VmKind::Evm), GasCategory::Call);
-        assert_eq!(GasCategory::from_step("DELEGATECALL", &VmKind::Evm), GasCategory::Call);
-        assert_eq!(GasCategory::from_step("STATICCALL", &VmKind::Evm), GasCategory::Call);
-        assert_eq!(GasCategory::from_step("CREATE", &VmKind::Evm), GasCategory::Call);
-        assert_eq!(GasCategory::from_step("CREATE2", &VmKind::Evm), GasCategory::Call);
+        assert_eq!(
+            GasCategory::from_step("CALL", &VmKind::Evm),
+            GasCategory::Call
+        );
+        assert_eq!(
+            GasCategory::from_step("DELEGATECALL", &VmKind::Evm),
+            GasCategory::Call
+        );
+        assert_eq!(
+            GasCategory::from_step("STATICCALL", &VmKind::Evm),
+            GasCategory::Call
+        );
+        assert_eq!(
+            GasCategory::from_step("CREATE", &VmKind::Evm),
+            GasCategory::Call
+        );
+        assert_eq!(
+            GasCategory::from_step("CREATE2", &VmKind::Evm),
+            GasCategory::Call
+        );
     }
 
     #[test]
     fn evm_execution_ops() {
-        assert_eq!(GasCategory::from_step("ADD", &VmKind::Evm), GasCategory::Execution);
-        assert_eq!(GasCategory::from_step("JUMPDEST", &VmKind::Evm), GasCategory::Execution);
-        assert_eq!(GasCategory::from_step("PUSH32", &VmKind::Evm), GasCategory::Execution);
-        assert_eq!(GasCategory::from_step("DUP1", &VmKind::Evm), GasCategory::Execution);
-        assert_eq!(GasCategory::from_step("SWAP16", &VmKind::Evm), GasCategory::Execution);
+        assert_eq!(
+            GasCategory::from_step("ADD", &VmKind::Evm),
+            GasCategory::Execution
+        );
+        assert_eq!(
+            GasCategory::from_step("JUMPDEST", &VmKind::Evm),
+            GasCategory::Execution
+        );
+        assert_eq!(
+            GasCategory::from_step("PUSH32", &VmKind::Evm),
+            GasCategory::Execution
+        );
+        assert_eq!(
+            GasCategory::from_step("DUP1", &VmKind::Evm),
+            GasCategory::Execution
+        );
+        assert_eq!(
+            GasCategory::from_step("SWAP16", &VmKind::Evm),
+            GasCategory::Execution
+        );
     }
 
     #[test]
     fn evm_unknown_op_falls_to_other() {
-        assert_eq!(GasCategory::from_step("CUSTOMOP", &VmKind::Evm), GasCategory::Other);
+        assert_eq!(
+            GasCategory::from_step("CUSTOMOP", &VmKind::Evm),
+            GasCategory::Other
+        );
         assert_eq!(GasCategory::from_step("", &VmKind::Evm), GasCategory::Other);
     }
 
@@ -229,14 +292,20 @@ mod tests {
 
     #[test]
     fn stylus_call_ops() {
-        assert_eq!(GasCategory::from_step("call_contract", &VmKind::Stylus), GasCategory::Call);
+        assert_eq!(
+            GasCategory::from_step("call_contract", &VmKind::Stylus),
+            GasCategory::Call
+        );
     }
 
     // ── Starknet ──────────────────────────────────────────────────────────────
 
     #[test]
     fn starknet_crypto_and_storage() {
-        assert_eq!(GasCategory::from_step("pedersen_hash", &VmKind::Starknet), GasCategory::Crypto);
+        assert_eq!(
+            GasCategory::from_step("pedersen_hash", &VmKind::Starknet),
+            GasCategory::Crypto
+        );
         assert_eq!(
             GasCategory::from_step("poseidon_hash_many", &VmKind::Starknet),
             GasCategory::Crypto
@@ -255,7 +324,10 @@ mod tests {
 
     #[test]
     fn solana_cpi_is_call() {
-        assert_eq!(GasCategory::from_step("invoke_signed_cpi", &VmKind::Solana), GasCategory::Call);
+        assert_eq!(
+            GasCategory::from_step("invoke_signed_cpi", &VmKind::Solana),
+            GasCategory::Call
+        );
     }
 
     #[test]
@@ -284,6 +356,9 @@ mod tests {
 
     #[test]
     fn whitespace_is_trimmed() {
-        assert_eq!(GasCategory::from_step("  SSTORE  ", &VmKind::Evm), GasCategory::StorageWrite);
+        assert_eq!(
+            GasCategory::from_step("  SSTORE  ", &VmKind::Evm),
+            GasCategory::StorageWrite
+        );
     }
 }

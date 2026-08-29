@@ -4,7 +4,7 @@ use anyhow::Result;
 use atupa_core::{CollapsedStack, VmKind};
 use atupa_nitro::{NitroClient, VmKind as NitroVmKind};
 use atupa_output::SvgGenerator;
-use atupa_parser::{aggregator::Aggregator, Parser as AtupaParser};
+use atupa_parser::{Parser as AtupaParser, aggregator::Aggregator};
 use atupa_rpc::etherscan::EtherscanResolver;
 use atupa_solana::{SolanaClient, SolanaLogStitcher};
 use atupa_starknet::StarknetClient;
@@ -156,8 +156,16 @@ async fn fetch_evm_nitro_stacks(
         .map_err(|e| anyhow::anyhow!("RPC error: {e}"))?;
 
     let network = get_network_name(report.chain_id);
-    let evm_count = report.steps.iter().filter(|s| s.vm == NitroVmKind::Evm).count();
-    let wasm_count = report.steps.iter().filter(|s| s.vm == NitroVmKind::Stylus).count();
+    let evm_count = report
+        .steps
+        .iter()
+        .filter(|s| s.vm == NitroVmKind::Evm)
+        .count();
+    let wasm_count = report
+        .steps
+        .iter()
+        .filter(|s| s.vm == NitroVmKind::Stylus)
+        .count();
     pb.set_message(format!(
         "Processing {evm_count} EVM + {wasm_count} Stylus steps from {network}…"
     ));
@@ -357,7 +365,11 @@ mod tests {
     fn detects_vm_heuristics() {
         // Starknet heuristic via URL
         assert_eq!(
-            detect_vm(None, "https://starknet-mainnet.public.blastapi.io", "0x1234"),
+            detect_vm(
+                None,
+                "https://starknet-mainnet.public.blastapi.io",
+                "0x1234"
+            ),
             VmHint::Starknet
         );
         // Solana heuristic via 44-char signature
@@ -369,7 +381,11 @@ mod tests {
         // Stellar heuristic via 64-char hash
         let stellar_hash = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
         assert_eq!(
-            detect_vm(None, "https://soroban-rpc.mainnet.stellar.org", stellar_hash),
+            detect_vm(
+                None,
+                "https://soroban-rpc.mainnet.stellar.org",
+                stellar_hash
+            ),
             VmHint::Stellar
         );
     }

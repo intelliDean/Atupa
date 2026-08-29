@@ -4,7 +4,7 @@ use atupa_adapters::ProtocolAdapter;
 use atupa_core::{DiffRow, ProtocolDiffReport, TraceStep};
 
 use crate::adapter::AaveV3Adapter;
-use crate::gho::{classify_gho_label, GhoSupplyMetrics};
+use crate::gho::{GhoSupplyMetrics, classify_gho_label};
 use crate::report::{LiquidationAccumulator, LiquidationReport};
 use crate::selectors::is_call_opcode;
 use crate::selectors::selector_from_stack;
@@ -77,7 +77,12 @@ fn build_diff_rows(
     target_gho: &GhoSupplyMetrics,
 ) -> Vec<DiffRow> {
     vec![
-        DiffRow::new("Total Gas", base.total_gas as f64, target.total_gas as f64, true),
+        DiffRow::new(
+            "Total Gas",
+            base.total_gas as f64,
+            target.total_gas as f64,
+            true,
+        ),
         DiffRow::new(
             "Liquidation Gas",
             base.liquidation_gas as f64,
@@ -102,8 +107,18 @@ fn build_diff_rows(
             target.external_calls as f64,
             true,
         ),
-        DiffRow::new("Oracle Calls", base.oracle_calls as f64, target.oracle_calls as f64, true),
-        DiffRow::new("Max Call Depth", base.max_depth as f64, target.max_depth as f64, true),
+        DiffRow::new(
+            "Oracle Calls",
+            base.oracle_calls as f64,
+            target.oracle_calls as f64,
+            true,
+        ),
+        DiffRow::new(
+            "Max Call Depth",
+            base.max_depth as f64,
+            target.max_depth as f64,
+            true,
+        ),
         DiffRow::new(
             "Liq. Efficiency",
             base.liquidation_efficiency,
@@ -215,9 +230,14 @@ mod tests {
     #[test]
     fn diff_produces_10_rows_with_correct_protocol_name() {
         let tracer = AaveDeepTracer::new();
-        let base = vec![TraceStep::evm("SLOAD", 800), TraceStep::evm("SSTORE", 20_000)];
+        let base = vec![
+            TraceStep::evm("SLOAD", 800),
+            TraceStep::evm("SSTORE", 20_000),
+        ];
         let target = vec![TraceStep::evm("SLOAD", 800)];
-        let report = tracer.diff_reports("0xbase", &base, "0xtarget", &target).unwrap();
+        let report = tracer
+            .diff_reports("0xbase", &base, "0xtarget", &target)
+            .unwrap();
         assert_eq!(report.protocol, "Aave v3 / GHO");
         assert_eq!(report.rows.len(), 10);
     }
@@ -226,9 +246,18 @@ mod tests {
     fn diff_detects_storage_write_regression() {
         let tracer = AaveDeepTracer::new();
         let base = vec![TraceStep::evm("SSTORE", 20_000)];
-        let target = vec![TraceStep::evm("SSTORE", 20_000), TraceStep::evm("SSTORE", 20_000)];
-        let report = tracer.diff_reports("0xbase", &base, "0xtarget", &target).unwrap();
-        let write_row = report.rows.iter().find(|r| r.metric == "Storage Writes (SSTORE)").unwrap();
+        let target = vec![
+            TraceStep::evm("SSTORE", 20_000),
+            TraceStep::evm("SSTORE", 20_000),
+        ];
+        let report = tracer
+            .diff_reports("0xbase", &base, "0xtarget", &target)
+            .unwrap();
+        let write_row = report
+            .rows
+            .iter()
+            .find(|r| r.metric == "Storage Writes (SSTORE)")
+            .unwrap();
         assert!(write_row.is_regression());
     }
 }

@@ -34,7 +34,10 @@ impl RawStructLog {
 
     /// Returns `true` if this step represents a cross-contract call.
     pub fn is_call(&self) -> bool {
-        matches!(self.op.as_str(), "CALL" | "STATICCALL" | "DELEGATECALL" | "CALLCODE")
+        matches!(
+            self.op.as_str(),
+            "CALL" | "STATICCALL" | "DELEGATECALL" | "CALLCODE"
+        )
     }
 }
 
@@ -96,7 +99,10 @@ mod tests {
 
     #[test]
     fn detects_revert_status() {
-        let log = RawStructLog { op: "REVERT".to_string(), ..Default::default() };
+        let log = RawStructLog {
+            op: "REVERT".to_string(),
+            ..Default::default()
+        };
         assert!(log.is_reverted());
 
         let log_err = RawStructLog {

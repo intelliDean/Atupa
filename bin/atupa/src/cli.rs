@@ -215,10 +215,22 @@ mod tests {
     #[test]
     fn vm_target_to_sdk_hint_conversions() {
         assert_eq!(VmTarget::Evm.to_sdk_hint(), atupa::profile::VmHint::Evm);
-        assert_eq!(VmTarget::Stylus.to_sdk_hint(), atupa::profile::VmHint::Stylus);
-        assert_eq!(VmTarget::Starknet.to_sdk_hint(), atupa::profile::VmHint::Starknet);
-        assert_eq!(VmTarget::Solana.to_sdk_hint(), atupa::profile::VmHint::Solana);
-        assert_eq!(VmTarget::Stellar.to_sdk_hint(), atupa::profile::VmHint::Stellar);
+        assert_eq!(
+            VmTarget::Stylus.to_sdk_hint(),
+            atupa::profile::VmHint::Stylus
+        );
+        assert_eq!(
+            VmTarget::Starknet.to_sdk_hint(),
+            atupa::profile::VmHint::Starknet
+        );
+        assert_eq!(
+            VmTarget::Solana.to_sdk_hint(),
+            atupa::profile::VmHint::Solana
+        );
+        assert_eq!(
+            VmTarget::Stellar.to_sdk_hint(),
+            atupa::profile::VmHint::Stellar
+        );
     }
 
     #[test]
@@ -247,7 +259,12 @@ mod tests {
         .unwrap();
 
         match cli.command {
-            Commands::Capture { tx, output, profile, .. } => {
+            Commands::Capture {
+                tx,
+                output,
+                profile,
+                ..
+            } => {
                 assert_eq!(
                     tx,
                     "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
@@ -275,7 +292,13 @@ mod tests {
         .unwrap();
 
         match cli.command {
-            Commands::Diff { base, target, threshold, markdown, .. } => {
+            Commands::Diff {
+                base,
+                target,
+                threshold,
+                markdown,
+                ..
+            } => {
                 assert_eq!(base, "0xaaaa");
                 assert_eq!(target, "0xbbbb");
                 assert_eq!(threshold, Some(5.5));

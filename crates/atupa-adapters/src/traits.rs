@@ -68,7 +68,10 @@ mod tests {
     #[test]
     fn trait_defaults_resolve_selector() {
         let adapter = MockAdapter;
-        assert_eq!(adapter.resolve_selector("0x12345678"), Some("Mock::deposit".to_string()));
+        assert_eq!(
+            adapter.resolve_selector("0x12345678"),
+            Some("Mock::deposit".to_string())
+        );
         assert_eq!(adapter.resolve_selector("0xdeadbeef"), None);
         assert!(adapter.matches_selector("0x12345678"));
         assert!(!adapter.matches_selector("0xdeadbeef"));
@@ -81,7 +84,10 @@ mod tests {
             adapter.resolve_address("0x1111111111111111111111111111111111111111"),
             Some("Mock::Vault".to_string())
         );
-        assert_eq!(adapter.resolve_address("0x2222222222222222222222222222222222222222"), None);
+        assert_eq!(
+            adapter.resolve_address("0x2222222222222222222222222222222222222222"),
+            None
+        );
         assert!(adapter.matches_address("0x1111111111111111111111111111111111111111"));
         assert!(!adapter.matches_address("0x2222222222222222222222222222222222222222"));
     }

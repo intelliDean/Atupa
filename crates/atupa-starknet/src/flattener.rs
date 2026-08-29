@@ -94,7 +94,11 @@ fn append_builtin_steps(resources: &ExecutionResources, depth: u16, steps: &mut 
     };
 
     add_builtin("PEDERSEN", resources.pedersen_builtin, PEDERSEN_WEIGHT);
-    add_builtin("RANGE_CHECK", resources.range_check_builtin, RANGE_CHECK_WEIGHT);
+    add_builtin(
+        "RANGE_CHECK",
+        resources.range_check_builtin,
+        RANGE_CHECK_WEIGHT,
+    );
     add_builtin("BITWISE", resources.bitwise_builtin, BITWISE_WEIGHT);
     add_builtin("POSEIDON", resources.poseidon_builtin, POSEIDON_WEIGHT);
     add_builtin("EC_OP", resources.ec_op_builtin, EC_OP_WEIGHT);
@@ -121,7 +125,10 @@ mod tests {
                 contract_address: "0x2".to_string(),
                 entry_point_selector: "0xdeadbeef".to_string(),
                 calldata: vec![],
-                execution_resources: ExecutionResources { steps: 50, ..Default::default() },
+                execution_resources: ExecutionResources {
+                    steps: 50,
+                    ..Default::default()
+                },
                 calls: vec![],
             }],
         };
@@ -153,13 +160,19 @@ mod tests {
             validate_invocation: Some(FunctionInvocation {
                 contract_address: "0xAccount".to_string(),
                 entry_point_selector: "0xvalidate".to_string(),
-                execution_resources: ExecutionResources { steps: 40, ..Default::default() },
+                execution_resources: ExecutionResources {
+                    steps: 40,
+                    ..Default::default()
+                },
                 ..Default::default()
             }),
             execute_invocation: Some(FunctionInvocation {
                 contract_address: "0xDapp".to_string(),
                 entry_point_selector: "0xexecute".to_string(),
-                execution_resources: ExecutionResources { steps: 200, ..Default::default() },
+                execution_resources: ExecutionResources {
+                    steps: 200,
+                    ..Default::default()
+                },
                 ..Default::default()
             }),
             fee_transfer_invocation: None,

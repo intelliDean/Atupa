@@ -41,10 +41,18 @@ pub async fn cmd_profile(
     .context("Profile command failed")?;
 
     eprintln!();
-    eprintln!("  {} ({})", "PROFILE COMPLETE".bold().underline(), network.cyan());
+    eprintln!(
+        "  {} ({})",
+        "PROFILE COMPLETE".bold().underline(),
+        network.cyan()
+    );
     let div = divider(40);
     eprintln!("{div}");
-    eprintln!("  {:<24} {}", "SVG saved to:".bold(), out_path.green().bold());
+    eprintln!(
+        "  {:<24} {}",
+        "SVG saved to:".bold(),
+        out_path.green().bold()
+    );
     eprintln!("{div}");
     Ok(())
 }

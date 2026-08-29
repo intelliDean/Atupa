@@ -5,7 +5,13 @@ use atupa_parser::aggregator::Aggregator;
 fn main() {
     // 1. Create mock trace steps (in a real app, these come from atupa-rpc)
     let steps = vec![
-        TraceStep { op: "PUSH1".into(), gas: 100, gas_cost: 3, depth: 1, ..Default::default() },
+        TraceStep {
+            op: "PUSH1".into(),
+            gas: 100,
+            gas_cost: 3,
+            depth: 1,
+            ..Default::default()
+        },
         TraceStep {
             pc: 1,
             op: "CALL".into(),
@@ -23,7 +29,13 @@ fn main() {
             ]),
             ..Default::default()
         },
-        TraceStep { op: "SSTORE".into(), gas: 50, gas_cost: 20000, depth: 2, ..Default::default() },
+        TraceStep {
+            op: "SSTORE".into(),
+            gas: 50,
+            gas_cost: 20000,
+            depth: 2,
+            ..Default::default()
+        },
     ];
 
     // 2. Initialize logger for the example
@@ -33,10 +45,18 @@ fn main() {
     let stacks = Aggregator::build_collapsed_stacks(&steps);
 
     // 4. Log the results
-    log::info!("Collapsed {} execution steps into {} paths.", steps.len(), stacks.len());
+    log::info!(
+        "Collapsed {} execution steps into {} paths.",
+        steps.len(),
+        stacks.len()
+    );
 
     for stack in stacks {
-        let status = if stack.reverted { "[REVERTED]" } else { "[SUCCESS]" };
+        let status = if stack.reverted {
+            "[REVERTED]"
+        } else {
+            "[SUCCESS]"
+        };
         log::info!("{} {} (weight: {} gas)", status, stack.stack, stack.weight);
 
         if let Some(addr) = stack.target_address {

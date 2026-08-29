@@ -81,7 +81,10 @@ mod tests {
     fn project_kind_labels() {
         assert_eq!(ProjectKind::Foundry.label(), "Foundry");
         assert_eq!(ProjectKind::Hardhat.label(), "Hardhat");
-        assert_eq!(ProjectKind::StylusOnly.label(), "Arbitrum Stylus (Rust-only)");
+        assert_eq!(
+            ProjectKind::StylusOnly.label(),
+            "Arbitrum Stylus (Rust-only)"
+        );
         assert_eq!(ProjectKind::Unknown.label(), "Unknown");
     }
 
@@ -117,10 +120,18 @@ mod tests {
             std::env::temp_dir().join(format!("atupa_test_proto_{}", std::process::id()));
         let _ = fs::create_dir_all(&temp_dir);
 
-        fs::write(temp_dir.join("Cargo.toml"), "[dependencies]\naave-v3-core = \"1.0\"").unwrap();
+        fs::write(
+            temp_dir.join("Cargo.toml"),
+            "[dependencies]\naave-v3-core = \"1.0\"",
+        )
+        .unwrap();
         assert_eq!(detect_protocol_at(&temp_dir), Some("aave".to_string()));
 
-        fs::write(temp_dir.join("Cargo.toml"), "[dependencies]\nlido-contracts = \"1.0\"").unwrap();
+        fs::write(
+            temp_dir.join("Cargo.toml"),
+            "[dependencies]\nlido-contracts = \"1.0\"",
+        )
+        .unwrap();
         assert_eq!(detect_protocol_at(&temp_dir), Some("lido".to_string()));
 
         let _ = fs::remove_dir_all(&temp_dir);

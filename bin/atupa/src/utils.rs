@@ -19,7 +19,10 @@ pub fn resolve_artifact_path(
     ext: &str,
 ) -> String {
     let filename = path.unwrap_or_else(|| {
-        let short = tx_hash.trim_start_matches("0x").get(..10).unwrap_or(tx_hash);
+        let short = tx_hash
+            .trim_start_matches("0x")
+            .get(..10)
+            .unwrap_or(tx_hash);
         match ext {
             "json" => format!("report_{short}.json"),
             "svg" => format!("profile_{short}.svg"),
@@ -28,7 +31,11 @@ pub fn resolve_artifact_path(
     });
 
     let pb = PathBuf::from(&filename);
-    if pb.parent().map(|p| p.as_os_str().is_empty()).unwrap_or(true) {
+    if pb
+        .parent()
+        .map(|p| p.as_os_str().is_empty())
+        .unwrap_or(true)
+    {
         let dir = format!("artifacts/{category}");
         let _ = std::fs::create_dir_all(&dir);
         format!("{dir}/{filename}")

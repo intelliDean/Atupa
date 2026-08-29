@@ -4,14 +4,20 @@ use colored::*;
 
 /// Prints the Atupa terminal banner.
 pub fn print_banner() {
-    eprintln!("{}", "╔════════════════════════════════════════════╗".dimmed());
+    eprintln!(
+        "{}",
+        "╔════════════════════════════════════════════╗".dimmed()
+    );
     eprintln!(
         "{} {} {}",
         "║".dimmed(),
         " 🏮  ATUPA  ·  Unified Execution Profiler  ".bold(),
         "║".dimmed()
     );
-    eprintln!("{}", "╚════════════════════════════════════════════╝".dimmed());
+    eprintln!(
+        "{}",
+        "╚════════════════════════════════════════════╝".dimmed()
+    );
     eprintln!();
 }
 

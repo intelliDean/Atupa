@@ -39,14 +39,26 @@ pub(crate) const GHO_SELECTORS: &[(&str, &str)] = &[
 
 /// Known GHO Facilitator addresses (Ethereum Mainnet, stored lowercase).
 pub(crate) const GHO_FACILITATORS: &[(&str, &str)] = &[
-    ("0x5513224daaeabca31af5280727878d52097afa05", "Direct Minter (Aave V3)"),
-    ("0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe", "Spark (Sky) Facilitator"),
+    (
+        "0x5513224daaeabca31af5280727878d52097afa05",
+        "Direct Minter (Aave V3)",
+    ),
+    (
+        "0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe",
+        "Spark (Sky) Facilitator",
+    ),
 ];
 
 /// Known Aave oracle addresses (Ethereum Mainnet, stored lowercase).
 pub(crate) const AAVE_ORACLES: &[(&str, &str)] = &[
-    ("0x54586be62e3c3580375ae3716c14bd2563060ca0", "Aave Price Oracle"),
-    ("0x3f12643d3f6f874d39c2a4c9f2cd6f2dbac877f", "GHO Price Oracle"),
+    (
+        "0x54586be62e3c3580375ae3716c14bd2563060ca0",
+        "Aave Price Oracle",
+    ),
+    (
+        "0x3f12643d3f6f874d39c2a4c9f2cd6f2dbac877f",
+        "GHO Price Oracle",
+    ),
 ];
 
 // ─── Lookup helpers ───────────────────────────────────────────────────────────
@@ -104,12 +116,18 @@ mod tests {
 
     #[test]
     fn resolve_selector_pool() {
-        assert_eq!(resolve_selector("0x617ba037"), Some("AaveV3Pool::supply".to_string()));
+        assert_eq!(
+            resolve_selector("0x617ba037"),
+            Some("AaveV3Pool::supply".to_string())
+        );
     }
 
     #[test]
     fn resolve_selector_gho() {
-        assert_eq!(resolve_selector("0x40c10f19"), Some("GHO::mint".to_string()));
+        assert_eq!(
+            resolve_selector("0x40c10f19"),
+            Some("GHO::mint".to_string())
+        );
     }
 
     #[test]
@@ -129,7 +147,10 @@ mod tests {
     #[test]
     fn resolve_address_oracle() {
         let addr = "0x54586bE62E3c3580375aE3716C14bd2563060Ca0";
-        assert_eq!(resolve_address(addr), Some("Oracle::Aave Price Oracle".to_string()));
+        assert_eq!(
+            resolve_address(addr),
+            Some("Oracle::Aave Price Oracle".to_string())
+        );
     }
 
     #[test]
@@ -163,7 +184,10 @@ mod tests {
 
     #[test]
     fn selector_from_stack_returns_none_for_empty_stack() {
-        let step = atupa_core::TraceStep { stack: Some(vec![]), ..Default::default() };
+        let step = atupa_core::TraceStep {
+            stack: Some(vec![]),
+            ..Default::default()
+        };
         assert!(selector_from_stack(&step).is_none());
     }
 

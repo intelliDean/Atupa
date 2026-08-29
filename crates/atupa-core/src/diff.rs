@@ -65,8 +65,19 @@ impl DiffRow {
     /// ```
     pub fn new(metric: &str, base: f64, target: f64, higher_is_worse: bool) -> Self {
         let delta = target - base;
-        let pct = if base != 0.0 { delta / base * 100.0 } else { 0.0 };
-        Self { metric: metric.to_string(), base, target, delta, pct, higher_is_worse }
+        let pct = if base != 0.0 {
+            delta / base * 100.0
+        } else {
+            0.0
+        };
+        Self {
+            metric: metric.to_string(),
+            base,
+            target,
+            delta,
+            pct,
+            higher_is_worse,
+        }
     }
 
     /// Returns `true` if this metric has regressed (moved in the undesired direction).
@@ -117,7 +128,10 @@ mod tests {
     fn zero_base_pct_is_zero_not_nan() {
         let row = DiffRow::new("New Metric", 0.0, 42.0, true);
         assert_eq!(row.delta, 42.0);
-        assert_eq!(row.pct, 0.0, "pct must be 0 when base is 0 to avoid NaN/inf");
+        assert_eq!(
+            row.pct, 0.0,
+            "pct must be 0 when base is 0 to avoid NaN/inf"
+        );
     }
 
     #[test]
@@ -145,7 +159,10 @@ mod tests {
             DiffRow::new("Steps", 50.0, 50.0, true), // neutral
             DiffRow::new("Reads", 10.0, 8.0, true),  // improvement
         ];
-        let report = ProtocolDiffReport { protocol: "Test".to_string(), rows };
+        let report = ProtocolDiffReport {
+            protocol: "Test".to_string(),
+            rows,
+        };
         assert!(report.has_regressions());
         assert_eq!(report.regressions().count(), 1);
         assert_eq!(report.improvements().count(), 1);
@@ -157,7 +174,10 @@ mod tests {
             DiffRow::new("Gas", 100.0, 90.0, true),  // improvement
             DiffRow::new("Steps", 50.0, 50.0, true), // neutral
         ];
-        let report = ProtocolDiffReport { protocol: "Test".to_string(), rows };
+        let report = ProtocolDiffReport {
+            protocol: "Test".to_string(),
+            rows,
+        };
         assert!(!report.has_regressions());
         assert_eq!(report.regressions().count(), 0);
         assert_eq!(report.improvements().count(), 1);
