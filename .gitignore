@@ -36,7 +36,8 @@ profile_*.svg
 *.out
 *.log
 
-.ideanode_modules/
+.idea
+node_modules/
 
 # Atupa trace reports (local test artefacts — any *.json at workspace root)
 report.json
