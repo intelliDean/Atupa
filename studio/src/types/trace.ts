@@ -57,7 +57,7 @@ export interface DiffReport {
 export type StudioReport = StitchedReport | DiffReport;
 
 export function isDiff(report: StudioReport): report is DiffReport {
-  return (report as any).type === 'diff';
+  return 'type' in report && report.type === 'diff';
 }
 
 export function getDisplayLabel(step: UnifiedStep, report: StitchedReport): string {

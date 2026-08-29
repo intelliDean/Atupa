@@ -18,16 +18,16 @@ export function DragDropZone({ onLoad }: Props) {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          const data = JSON.parse(e.target?.result as string) as StudioReport;
-          const isSingle = (data as any).tx_hash && Array.isArray((data as any).steps);
-          const isDiffReport = (data as any).type === 'diff' && (data as any).base && (data as any).target;
+          const data = JSON.parse(e.target?.result as string) as Record<string, unknown>;
+          const isSingle = typeof data.tx_hash === 'string' && Array.isArray(data.steps);
+          const isDiffReport = data.type === 'diff' && typeof data.base === 'object' && typeof data.target === 'object';
           
           if (!isSingle && !isDiffReport) {
             setError('File does not appear to be an Atupa trace report or comparison.');
             return;
           }
           setError(null);
-          onLoad(data);
+          onLoad(data as unknown as StudioReport);
         } catch {
           setError('Failed to parse JSON — is this a valid Atupa trace?');
         }

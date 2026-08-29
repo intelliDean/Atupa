@@ -55,7 +55,7 @@ export function TraceInspector({ report }: Props) {
       if (search && !label.includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [report.steps, filter, search]);
+  }, [report, filter, search]);
 
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const visible = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);

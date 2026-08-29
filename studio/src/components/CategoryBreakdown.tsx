@@ -9,7 +9,7 @@ export function CategoryBreakdown({ report }: Props) {
   const categories = Object.entries(report.category_costs) as [GasCategory, number][];
   // Filter out zero costs and sort by value
   const sorted = categories
-    .filter(([_, gas]) => gas > 0)
+    .filter(([, gas]) => gas > 0)
     .sort((a, b) => b[1] - a[1]);
   
   const total = report.total_unified_cost || 1;

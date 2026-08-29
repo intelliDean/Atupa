@@ -7,19 +7,19 @@ interface Props {
   report: DiffReport;
 }
 
+function DeltaLabel({ val, pct }: { val: number; pct: number }) {
+  const isIncrease = val > 0;
+  const color = isIncrease ? '#ff4d4d' : '#4dff88';
+  const sign = isIncrease ? '+' : '';
+  return (
+    <span style={{ color, fontWeight: 'bold', marginLeft: 8 }}>
+      {sign}{fmtGas(Math.round(val))} ({sign}{pct.toFixed(1)}%)
+    </span>
+  );
+}
+
 export function DiffOverview({ report }: Props) {
   const { base, target, metrics } = report;
-
-  const DeltaLabel = ({ val, pct }: { val: number; pct: number }) => {
-    const isIncrease = val > 0;
-    const color = isIncrease ? '#ff4d4d' : '#4dff88';
-    const sign = isIncrease ? '+' : '';
-    return (
-      <span style={{ color, fontWeight: 'bold', marginLeft: 8 }}>
-        {sign}{fmtGas(Math.round(val))} ({sign}{pct.toFixed(1)}%)
-      </span>
-    );
-  };
 
   return (
     <div className="diff-overview">

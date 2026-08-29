@@ -158,19 +158,19 @@ function layoutTree(
 
 // ─── Bar ─────────────────────────────────────────────────────────────────────
 
-interface BarProps {
+interface FlameBarProps {
   lnode: LayoutNode;
   svgWidth: number;
   zoomX: number;  // current zoom origin (fraction)
   zoomW: number;  // current zoom width  (fraction)
   highlight: string;
-  onHover: (tip: TooltipState | null, evt: React.MouseEvent) => void;
+  onHover: (tip: TooltipState | null) => void;
   onClick: (n: FlameNode) => void;
 }
 
 const Bar = React.memo(function Bar({
   lnode, svgWidth, zoomX, zoomW, highlight, onHover, onClick,
-}: BarProps) {
+}: FlameBarProps) {
   const { node, x, w, row } = lnode;
 
   // Map fraction → pixel within the visible zoom window
@@ -219,8 +219,8 @@ const Bar = React.memo(function Bar({
     <g
       style={{ cursor: row === 0 ? 'default' : 'pointer' }}
       onClick={() => row > 0 && onClick(node)}
-      onMouseMove={(e) => onHover({ x: e.nativeEvent.offsetX, y: py, node }, e)}
-      onMouseLeave={() => onHover(null, {} as React.MouseEvent)}
+      onMouseMove={(e) => onHover({ x: e.nativeEvent.offsetX, y: py, node })}
+      onMouseLeave={() => onHover(null)}
     >
       <rect
         x={visX + 1}
@@ -310,13 +310,15 @@ export function FlameGraph({ root, search = '' }: Props) {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   // Zoom state: the zoomed-in node trail (first = virtual root)
+  const [prevRoot, setPrevRoot] = useState<FlameNode>(root);
   const [zoomTrail, setZoomTrail] = useState<FlameNode[]>([root]);
-  const zoomedNode = zoomTrail[zoomTrail.length - 1];
 
-  // Recalculate when root changes (new report loaded)
-  useEffect(() => {
+  if (prevRoot !== root) {
+    setPrevRoot(root);
     setZoomTrail([root]);
-  }, [root]);
+  }
+
+  const zoomedNode = zoomTrail[zoomTrail.length - 1] ?? root;
 
   // Observe container width
   useEffect(() => {
@@ -376,7 +378,7 @@ export function FlameGraph({ root, search = '' }: Props) {
   }, []);
 
   const handleHover = useCallback(
-    (tip: TooltipState | null, _evt: React.MouseEvent) => {
+    (tip: TooltipState | null) => {
       setTooltip(tip);
     },
     [],
