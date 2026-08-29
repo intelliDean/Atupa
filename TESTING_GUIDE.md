@@ -1,107 +1,107 @@
-# Atupa Testing Guide
+# 🧪 Atupa Testing Guide
 
-This document provides a comprehensive, step-by-step framework for testing the entirety of the Atupa project. It covers automated workspace tests, local CLI verification, and end-to-end integration flows.
-
----
-
-## 1. Prerequisites & Environment Setup
-
-Most advanced features of Atupa (Trace Capturing, Protocol Audits, Differential Profiling) require live Ethereum/Arbitrum node data. Ensure your environment is configured before starting E2E testing.
-
-### Environment Variables
-For live network tests, expose the following environment variables:
-```bash
-export ATUPA_RPC_URL="https://arb-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_KEY"
-export ETHERSCAN_API_KEY="YOUR_ARBISCAN_KEY"
-```
-*(If you do not have an API key, you can still verify functionality using the `--demo` mode or cargo unit testing).*
+This document provides a comprehensive framework for testing the entire Atupa monorepo, covering automated Rust workspace tests, frontend Studio testing, local CLI verification, and CI regression checks.
 
 ---
 
-## 2. Automated Workspace Testing (CI/CD Quality)
+## 1. Automated Workspace Testing (Rust & Frontend)
 
-The project leverages Cargo's highly parallel test runner to ensure unit and integration validity across all workspace crates (`atupa-core`, `atupa-parser`, `atupa-lido`, `atupa-aave`, etc.).
+### Rust Test Suite
+The project leverages Cargo's test runner across all 13 crates:
 
-**Run the fundamental verification suite:**
 ```bash
-# 1. Formatting
+# 1. Format Check
 cargo fmt --all -- --check
 
-# 2. Linting
-cargo clippy --workspace --all-targets --all-features -- -D warnings
+# 2. Strict Linting
+cargo clippy --workspace --all-targets -- -D warnings
 
 # 3. All Unit & Integration Tests
-cargo test --workspace --all-features
+cargo test --workspace
 ```
-> **Success Criteria:** Zero warnings and passing results for all doc tests, unit tests, and integration assertions.
+
+### Studio Frontend Testing & Linting
+Verify the embedded React 19 visualizer:
+
+```bash
+cd studio
+
+# 1. Lint TypeScript and React Components
+npm run lint
+
+# 2. Build Static Bundle for Binary Embedding
+npm run build
+```
 
 ---
 
-## 3. CLI Feature Testing (Local Verification)
+## 2. CLI End-to-End Verification
 
-To test the CLI application manually and visually, compile it locally and execute its main subcommands. E2E testing evaluates the terminal presentation, progress bar animations, rendering, and API communication.
+Compile the CLI in release mode:
 
-Compile first to ensure performance:
 ```bash
 cargo build --release -p atupa
 alias atupa="./target/release/atupa"
 ```
 
-### Flow 1: Offline / Demo Verification
-Verify the CLI profiling outputs and visual styles without relying on the network.
-```bash
-# Run a demo profile 
-atupa profile --demo --tx 0x0
-```
-> **Expected Output:** You should see a visually distinct `eprintln!` profiling banner and a well-formatted statistical JSON structure showing unified traces.
-
-### Flow 2: Live RPC Connection / Trace Capture
-Test the `capture` command, evaluating both `stdout` output generation and diagnostic `stderr` headers. Replace `0x...` with a real target Arbitrum/Ethereum transaction.
-```bash
-atupa capture --tx 0x8a923...
-```
-> **Expected Output:** A cleanly rendered summary payload. (Verify that `atupa capture --tx ... > report.txt` results in the report being written cleanly to file without UI spinners overriding `stdout`).
-
-### Flow 3: Specific Protocol Audits
-Test the semantic decoding layers. These verify that the abstract trace data successfully parses into protocol-specific models.
-
-**A. Test Aave v3 Decoding**
-```bash
-atupa audit --protocol aave --tx 0x93ab...
-```
-> **Expected Output:** A generated diagnostic table identifying the Flash Loan execution, debt updates, user reserve states, and liquidation values. 
-
-**B. Test Lido stETH Execution**
-```bash
-atupa audit --protocol lido --tx 0x1fca...
-```
-> **Expected Output:** Verification of the staking pipeline (Deposit Event → Oracle Refresh → Staking Limits → Treasury Accounting).
-
-### Flow 4: Differential Profiling (Cost & Execution Delta)
-Verify the `--diff` execution flow, calculating the divergence in bytecode pathways or gas consumption between two similar transactions.
+### Flow 1: Offline / Demo Flamegraph
+Verify SVG generation without network dependency:
 
 ```bash
-atupa diff 0xBASE_TX_HASH 0xTARGET_TX_HASH
+atupa profile --demo --out profile_demo.svg
 ```
-> **Expected Output:** A dual-table view or structured report listing `-X%` or `+Y%` deltas for Execution Steps, Memory Allocation, EVM Gas, and System VM parameters.
+> **Expected Output:** Profile banner, terminal confirmation, and a valid `profile_demo.svg` file created.
+
+### Flow 2: Multi-VM Live Trace Captures
+Test trace capture across supported VM runtimes:
+
+```bash
+# Arbitrum Nitro / EVM
+atupa capture --tx 0x8a923... --rpc https://arb-mainnet.g.alchemy.com/v2/KEY
+
+# Solana Sealevel VM (SVM)
+atupa capture --tx 5Z9... --rpc https://api.mainnet-beta.solana.com
+
+# Starknet Cairo VM
+atupa capture --tx 0x... --rpc https://starknet-mainnet.public.blastapi.io
+
+# Stellar Soroban WASM VM
+atupa capture --tx 0x... --rpc https://soroban-testnet.stellar.org
+```
+
+### Flow 3: Protocol Deep Auditing
+Verify specialized semantic decoding for DeFi protocols:
+
+```bash
+# Aave v3 + GHO Stablecoin Audit
+atupa audit --protocol aave --tx 0x...
+
+# Lido stETH Audit
+atupa audit --protocol lido --tx 0x...
+```
+
+### Flow 4: Differential Profiling & CI Regression
+Verify differential execution analysis:
+
+```bash
+# Basic comparison
+atupa diff --base 0xBASE_HASH --target 0xTARGET_HASH --rpc https://...
+
+# Enforce regression threshold with Markdown report & SVG generation
+atupa diff --base 0xBASE_HASH --target 0xTARGET_HASH --threshold 2.0 --markdown --svg
+```
+
+### Flow 5: Local Studio Server
+Launch the embedded web server and verify browser loading:
+
+```bash
+atupa studio --port 5173
+```
+> **Expected Output:** Local server starts on `http://localhost:5173` and automatically opens the visualizer in the default browser.
 
 ---
 
-## 4. Specific Crate Example Evaluation
+## 3. Security & Code Safety Rules
 
-To test individual programmatic SDK behaviors independent of the main CLI app, Atupa includes runnable examples inside specific crates.
-
-### Run the Trace Parser Example
-This runs a simulated test of the underlying log unification parser:
-```bash
-RUST_LOG=info cargo run -p atupa-parser --example trace_analysis
-```
-> **Expected Output:** The parsed log analysis will stream into the standard console output using `env_logger`. Ensure the output renders properly without utilizing `println!`.
-
----
-
-## 5. Security & Safety
-
-Atupa follows strict safety constraints. As part of your testing loop:
-- Ensure the **"No-`println!`" rule** is respected. The CLI `stdout` must remain untainted for data payload piping, utilizing `eprintln!` strictly for diagnostics.
-- Ensure all dependencies remain synchronized avoiding version drift across workspaces. Run `cargo update` locally and re-run step 2 (Automated Workspace Testing) to check against dependency vulnerabilities.
+- **Zero Clippy Warnings**: All commits must pass `cargo clippy --workspace --all-targets -- -D warnings`.
+- **Clean stdout**: CLI diagnostic messages use `eprintln!`; structured JSON or metric payloads use `stdout` so output can be safely piped into files or downstream tools.

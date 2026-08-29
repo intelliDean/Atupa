@@ -2,10 +2,10 @@
   <img src="assets/logo.png" width="350" alt="Atupa Logo">
 </p>
 
-<h1 align="center">Atupa</h1>
+<h1 align="center">🏮 Atupa</h1>
 
 <p align="center">
-  <strong>High-Fidelity Ethereum Tracing, Profiling &amp; Visual Analysis Suite</strong>
+  <strong>Universal Multi-VM Execution Profiler &amp; Visual Analysis Suite</strong>
 </p>
 
 <p align="center">
@@ -17,19 +17,18 @@
 
 ---
 
-**Atupa** is a professional-grade **Universal Multi-VM Execution Profiler**. It provides a unified observability layer for the modular execution landscape, including EVM, Arbitrum Stylus (WASM), Starknet (Cairo), Solana (SVM), and Stellar (Soroban), turning raw execution logs into actionable visual insights.
+**Atupa** is a professional-grade **Universal Multi-VM Execution Profiler**. It provides a unified observability and regression analysis layer across diverse blockchain Virtual Machines — including **EVM**, **Arbitrum Stylus (WASM)**, **Starknet (Cairo)**, **Solana (SVM)**, and **Stellar (Soroban)** — turning raw execution traces into actionable visual insights and CI-ready differential reports.
 
 ## ✨ Key Features
 
 - **🌐 Universal Multi-VM Profiling**: Unified tracing for EVM, Arbitrum Stylus (WASM), Starknet (Cairo), Solana (SVM), and Stellar (Soroban).
-- **🔥 Dual-VM Stitching**: Seamlessly reconstructs execution timelines across VM boundaries (e.g., EVM calling Stylus WASM).
-- **📊 Protocol-Aware Gas Analysis**: Specialized cost mapping for non-EVM units, including Solana Compute Units (CU) and Soroban HostFn weights.
-- **🏮 Atupa Studio**: A local-first web visualizer — drop a `report.json` to instantly render cross-chain metric cards and interactive flamegraphs.
-- **🚨 Crisp Revert Identification**: Instantly identifies failing sub-calls or program errors with high-contrast highlights.
-- **🔍 Smart Contract Resolution**: Automatically resolves addresses to verified contract names via Etherscan, Starkscan, and Solana Explorers.
-- **🚀 Automated CI/CD Pipeline**: Built-in zero-config gas regression gating for GitHub Actions across all supported chains.
-- **💉 Protocol-Specific Deep Auditing**: Built-in deep traces for **Lido stETH**, **Aave v3**, and upcoming Solana DeFi primitives.
-- **🛠 Modular Library Architecture**: Pure Rust workspace with specialized crates for each VM adapter and execution environment.
+- **🔥 Dual-VM Stitching**: Seamlessly reconstructs execution timelines across VM boundaries (e.g. EVM calling Stylus WASM with HostIO breakdown).
+- **📊 Protocol-Aware Gas Analysis**: Specialized cost mapping for non-EVM units, including Solana Compute Units (CU), Soroban HostFn weights, and Cairo execution steps.
+- **🏮 Atupa Studio**: An embedded local-first web visualizer (`atupa studio`) — drop a `report.json` to instantly render cross-chain metric cards and interactive flamegraphs.
+- **🔍 Smart Contract Resolution**: Automatically resolves addresses to verified contract names via Etherscan, Starkscan, and explorer resolvers.
+- **🚀 Automated CI/CD Regression Gates**: Built-in zero-config gas regression gating for GitHub Actions with sticky PR commenting and SVG artifact generation.
+- **🔬 Protocol-Specific Deep Auditing**: Built-in deep tracers for **Aave v3 / GHO** and **Lido stETH**.
+- **🛠 Modular Architecture**: 13 pure Rust crates with zero-cost abstractions, strict type safety, and clean separation of concerns.
 
 ## 🚀 Quick Start
 
@@ -41,10 +40,10 @@ cargo install atupa
 
 ### 🏮 One-Click Initialization
 
-Bootstrap your project with Atupa profiling and automated CI regression in one command.
+Bootstrap your project with Atupa profiling and automated CI regression in one command:
 
 ```bash
-# Detects Foundry/Hardhat and sets up atupa.toml + GitHub Action
+# Detects Foundry, Hardhat, or Stylus and generates atupa.toml + GitHub Action + profile script
 atupa init
 ```
 
@@ -63,75 +62,104 @@ atupa capture --tx 0x... --rpc https://starknet-mainnet.public.blastapi.io
 # Capture a Stellar transaction (Soroban diagnostic events)
 atupa capture --tx 0x... --rpc https://soroban-testnet.stellar.org
 
-# Export as JSON for Atupa Studio
-atupa capture --tx 0x... --rpc https://... --output json --file report.json
+# Explicitly specify VM runtime if ambiguous
+atupa capture --tx 0x... --vm stylus --rpc https://arb-sepolia.g.alchemy.com/v2/KEY
 
-# Compare execution cost of two transactions (cross-chain diffing)
-atupa diff --base 0x... --target 0x...
+# Export report as JSON and generate an SVG flamegraph simultaneously
+atupa capture --tx 0x... --output json --file report.json --profile
 ```
 
-## 🛡 Automated Gas Regression (CI)
-
-Atupa is designed to sit inside your CI/CD pipeline. Use `atupa init` to generate a `.github/workflows/atupa.yml` file that:
-1. Runs your profile scripts on the base branch (baseline).
-2. Runs your profile scripts on the pull request branch (target).
-3. Compares results and fails the CI if gas regressions exceed your `atupa.toml` thresholds.
+### Comparing Transactions (Differential Profiling)
 
 ```bash
-atupa diff --base 0xBASE_TX --target 0xPR_TX --protocol lido
+# Compare execution costs of two transactions
+atupa diff --base 0xBASE_TX --target 0xTARGET_TX --rpc https://...
+
+# Enforce a CI regression threshold (fail if gas increases by > 2%)
+atupa diff --base 0xBASE_TX --target 0xTARGET_TX --threshold 2.0 --markdown --svg
+
+# Run protocol deep diff (Aave v3 or Lido stETH)
+atupa diff --base 0xBASE_TX --target 0xTARGET_TX --protocol aave
 ```
 
-### Run the Demo
+### Generating an Interactive SVG Flamegraph
+
 ```bash
-atupa profile --demo
+# Offline demo trace (no RPC required)
+atupa profile --demo --out profile_demo.svg
+
+# Profile a live on-chain transaction
+atupa profile --tx 0x... --rpc https://arb-mainnet.g.alchemy.com/v2/KEY
 ```
+
+---
 
 ## 🏮 Atupa Studio
 
-Atupa Studio is a local-first web visualizer for your execution traces.
+Atupa Studio is an embedded local web visualizer for interactive trace inspection and flamegraph exploration.
 
 ```bash
-# Start the Studio dev server
-cd studio && npm install && npm run dev
+# Launch Studio and auto-open in browser
+atupa studio
+
+# Or capture a trace and launch Studio with the report automatically loaded
+atupa capture --tx 0x... --rpc https://... --studio
 ```
 
-Then open **http://localhost:5173**, generate a trace with `--output json --file report.json`, and drop the file into the Studio. The dashboard instantly renders:
+---
 
-- **Execution Metrics** — EVM Gas, Stylus Ink, HostIO call counts, VM boundary crossings
-- **HostIO Hot Paths** — Ranked table with inline distribution bars
-- **Trace Inspector** — Paginated, filterable, searchable step-by-step execution viewer
+## 🛡 Automated Gas Regression (GitHub Action)
 
-## 📦 Project Structure
+Integrate Atupa into your repository's CI pipeline with [`One-Block-Org/Atupa`](action.yml):
 
-Atupa is built as a highly modular monorepo:
+```yaml
+- name: Run Atupa Gas Regression Check
+  uses: One-Block-Org/Atupa@main
+  with:
+    base_tx: ${{ steps.baseline.outputs.tx_hash }}
+    target_tx: ${{ steps.target.outputs.tx_hash }}
+    rpc_url: ${{ secrets.ATUPA_RPC_URL }}
+    config: 'atupa.toml'
+    post_comment: 'true'
+    upload_svg: 'true'
+    upload_json: 'true'
+```
+
+---
+
+## 📦 Monorepo Architecture
+
+The workspace is organized into modular crates:
 
 | Crate / Directory | Description |
 |---|---|
-| [`bin/atupa`](bin/atupa) | The primary command-line interface. |
-| [`studio/`](studio) | Atupa Studio — Vite + React web visualizer. |
-| [`crates/atupa-sdk`](crates/atupa-sdk) | Public-facing SDK for programmatic tracing. |
-| [`crates/atupa-core`](crates/atupa-core) | Shared types and core configuration logic. |
-| [`crates/atupa-parser`](crates/atupa-parser) | Aggregation engine that collapses EVM traces. |
-| [`crates/atupa-nitro`](crates/atupa-nitro) | Arbitrum Nitro dual-VM stitcher (EVM + Stylus). |
-| [`crates/atupa-starknet`](crates/atupa-starknet) | Starknet (Cairo) VM adapter. |
-| [`crates/atupa-solana`](crates/atupa-solana) | Solana (SVM) log-stitching profiler. |
-| [`crates/atupa-stellar`](crates/atupa-stellar) | Stellar (Soroban) diagnostic event parser. |
-| [`crates/atupa-rpc`](crates/atupa-rpc) | Async multi-chain RPC client & resolver. |
-| [`crates/atupa-lido`](crates/atupa-lido) | Specialized adapter for Lido stETH. |
-| [`crates/atupa-aave`](crates/atupa-aave) | Specialized adapter for Aave v3 & GHO. |
+| [`bin/atupa`](bin/atupa) | The primary command-line interface (`profile`, `capture`, `audit`, `diff`, `studio`, `init`). |
+| [`studio/`](studio) | Atupa Studio — Vite + React 19 + TypeScript web visualizer. |
+| [`crates/atupa-sdk`](crates/atupa-sdk) | High-level SDK facade for programmatic profiling and multi-VM routing. |
+| [`crates/atupa-core`](crates/atupa-core) | Core data models, `TraceStep`, `GasCategory`, `VmKind`, and configuration types. |
+| [`crates/atupa-adapters`](crates/atupa-adapters) | Common adapter registry and standard protocol traits (Uniswap v4, ERC-20). |
+| [`crates/atupa-parser`](crates/atupa-parser) | Selector decoders, trace normalizers, and stack aggregators. |
+| [`crates/atupa-output`](crates/atupa-output) | Standalone SVG flamegraph and visual diff flamegraph rendering engines. |
+| [`crates/atupa-nitro`](crates/atupa-nitro) | Arbitrum Nitro dual-VM clock stitcher (EVM + Stylus WASM HostIOs). |
+| [`crates/atupa-starknet`](crates/atupa-starknet) | Starknet Cairo execution flattener and builtin weight calculators. |
+| [`crates/atupa-solana`](crates/atupa-solana) | Solana Sealevel VM (SVM) log-stitching state machine. |
+| [`crates/atupa-stellar`](crates/atupa-stellar) | Stellar Soroban diagnostic event tracer and HostFn cost estimator. |
+| [`crates/atupa-rpc`](crates/atupa-rpc) | Async multi-chain RPC client, raw trace types, and Etherscan resolver. |
+| [`crates/atupa-aave`](crates/atupa-aave) | Specialized deep tracer for Aave v3 and GHO stablecoin operations. |
+| [`crates/atupa-lido`](crates/atupa-lido) | Specialized deep tracer for Lido stETH staking operations. |
+
+---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for more details.
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) and [Testing Guide](TESTING_GUIDE.md) for details.
 
-## 📖 Documentation
+## 📖 Further Reading
 
-For a deep dive into Atupa's internals and philosophy:
-- [**The Atupa Vision**](docs/VISION.md) — Why we are building a universal profiler.
-- [**System Architecture**](ARCHITECTURE.md) — How the engine, adapters, and Studio interact.
-- [**Adapter Guide**](docs/ADAPTER_GUIDE.md) — A step-by-step guide to adding support for new VMs.
+- [**The Atupa Vision**](docs/VISION.md) — Why universal multi-VM execution observability matters.
+- [**System Architecture**](ARCHITECTURE.md) — Deep dive into normalization, dual-VM clock stitching, and pipeline design.
+- [**Adapter Guide**](docs/ADAPTER_GUIDE.md) — Step-by-step guide to adding support for new Virtual Machines.
 
 ## 📄 License
 
 Atupa is dual-licensed under the [MIT License](LICENSE-MIT) and the [Apache License, Version 2.0](LICENSE-APACHE).
-You may use this software under either license, at your option.
