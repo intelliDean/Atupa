@@ -1,0 +1,103 @@
+{
+  "type": "diff",
+  "base": {
+    "tx_hash": "0xBASE923fc41b0294e75618b76a02938475620194857261948572619485726194",
+    "steps": [
+      {
+        "index": 0,
+        "vm": "Evm",
+        "label": "UniswapV3::exactInputSingle",
+        "gas_cost": 125000,
+        "cost_equiv": 125000,
+        "depth": 1,
+        "is_vm_boundary": false,
+        "category": "Call",
+        "target_address": "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+      },
+      {
+        "index": 1,
+        "vm": "Evm",
+        "label": "Pool::swap (Old Storage Layout)",
+        "gas_cost": 64000,
+        "cost_equiv": 64000,
+        "depth": 2,
+        "is_vm_boundary": false,
+        "category": "StorageWrite"
+      }
+    ],
+    "total_evm_gas": 189000,
+    "total_stylus_ink": 0,
+    "total_stylus_gas_equiv": 0,
+    "total_unified_cost": 189000,
+    "vm_boundary_count": 0,
+    "category_costs": {
+      "StorageWrite": 64000,
+      "StorageRead": 0,
+      "Call": 125000,
+      "Crypto": 0,
+      "Memory": 0,
+      "Execution": 0,
+      "Precompile": 0,
+      "Root": 0,
+      "Other": 0
+    },
+    "resolved_names": {
+      "0xE592427A0AEce92De3Edee1F18E0157C05861564": "Uniswap V3 SwapRouter"
+    }
+  },
+  "target": {
+    "tx_hash": "0xTARGET3fc41b0294e75618b76a02938475620194857261948572619485726194",
+    "steps": [
+      {
+        "index": 0,
+        "vm": "Evm",
+        "label": "UniswapV4::swap (Hooks & Transient Storage)",
+        "gas_cost": 84000,
+        "cost_equiv": 84000,
+        "depth": 1,
+        "is_vm_boundary": false,
+        "category": "Call",
+        "target_address": "0x498581fF718922c3f8e6A244956aF099B2652b2b"
+      },
+      {
+        "index": 1,
+        "vm": "Evm",
+        "label": "TSTORE (Transient Storage Slot)",
+        "gas_cost": 100,
+        "cost_equiv": 100,
+        "depth": 2,
+        "is_vm_boundary": false,
+        "category": "StorageWrite"
+      }
+    ],
+    "total_evm_gas": 84100,
+    "total_stylus_ink": 0,
+    "total_stylus_gas_equiv": 0,
+    "total_unified_cost": 84100,
+    "vm_boundary_count": 0,
+    "category_costs": {
+      "StorageWrite": 100,
+      "StorageRead": 0,
+      "Call": 84000,
+      "Crypto": 0,
+      "Memory": 0,
+      "Execution": 0,
+      "Precompile": 0,
+      "Root": 0,
+      "Other": 0
+    },
+    "resolved_names": {
+      "0x498581fF718922c3f8e6A244956aF099B2652b2b": "Uniswap V4 PoolManager"
+    }
+  },
+  "metrics": {
+    "base_total_gas": 189000,
+    "target_total_gas": 84100,
+    "gas_delta": -104900,
+    "gas_pct": -55.5,
+    "base_unified_cost": 189000,
+    "target_unified_cost": 84100,
+    "unified_delta": -104900,
+    "unified_pct": -55.5
+  }
+}

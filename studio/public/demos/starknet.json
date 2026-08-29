@@ -1,0 +1,89 @@
+{
+  "tx_hash": "0x04c8f429bc41b0294e75618b76a0293847562019485726194857261948572619",
+  "steps": [
+    {
+      "index": 0,
+      "vm": "Starknet",
+      "label": "Account::execute [Cairo]",
+      "gas_cost": 4200,
+      "cost_equiv": 4200,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Execution",
+      "target_address": "0x0124367982f1b0294e75618b76a029384756201948572619485726194857261"
+    },
+    {
+      "index": 1,
+      "vm": "Starknet",
+      "label": "builtin:ecdsa_signature_verification",
+      "gas_cost": 20480,
+      "cost_equiv": 20480,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Crypto"
+    },
+    {
+      "index": 2,
+      "vm": "Starknet",
+      "label": "JediSwap::swap_exact_tokens_for_tokens",
+      "gas_cost": 8500,
+      "cost_equiv": 8500,
+      "depth": 2,
+      "is_vm_boundary": true,
+      "category": "Call",
+      "target_address": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+    },
+    {
+      "index": 3,
+      "vm": "Starknet",
+      "label": "builtin:pedersen_hash",
+      "gas_cost": 3200,
+      "cost_equiv": 3200,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "Crypto"
+    },
+    {
+      "index": 4,
+      "vm": "Starknet",
+      "label": "builtin:range_check",
+      "gas_cost": 1600,
+      "cost_equiv": 1600,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    },
+    {
+      "index": 5,
+      "vm": "Starknet",
+      "label": "ERC20::transfer (State Update)",
+      "gas_cost": 14200,
+      "cost_equiv": 14200,
+      "depth": 3,
+      "is_vm_boundary": true,
+      "category": "StorageWrite",
+      "target_address": "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8"
+    }
+  ],
+  "total_evm_gas": 0,
+  "total_stylus_ink": 0,
+  "total_stylus_gas_equiv": 0,
+  "total_unified_cost": 52180,
+  "vm_boundary_count": 2,
+  "category_costs": {
+    "StorageWrite": 14200,
+    "StorageRead": 0,
+    "Call": 8500,
+    "Crypto": 23680,
+    "Memory": 0,
+    "Execution": 5800,
+    "Precompile": 0,
+    "Root": 0,
+    "Other": 0
+  },
+  "resolved_names": {
+    "0x0124367982f1b0294e75618b76a029384756201948572619485726194857261": "Braavos Smart Account",
+    "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": "JediSwap Router",
+    "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8": "Starknet USDC ERC20"
+  }
+}

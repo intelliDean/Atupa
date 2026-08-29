@@ -1,0 +1,85 @@
+{
+  "tx_hash": "c5949d28a49c4f1c998318182b8a74e534f3efd8544c45b85438efca88921a99",
+  "steps": [
+    {
+      "index": 0,
+      "vm": "Stellar",
+      "label": "InvokeHostFunction: Soroban VM Init",
+      "gas_cost": 2500,
+      "cost_equiv": 2500,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    },
+    {
+      "index": 1,
+      "vm": "Stellar",
+      "label": "HostFn::get_ledger_sequence",
+      "gas_cost": 450,
+      "cost_equiv": 450,
+      "depth": 1,
+      "is_vm_boundary": false,
+      "category": "Execution"
+    },
+    {
+      "index": 2,
+      "vm": "Stellar",
+      "label": "HostFn::call (Soroban AMM Pool)",
+      "gas_cost": 5200,
+      "cost_equiv": 5200,
+      "depth": 2,
+      "is_vm_boundary": true,
+      "category": "Call",
+      "target_address": "CB4J4S547RGYV5T53F2H4W527G34LKVQ7M5RFTZ55YPQXQO6X7J34XYZ"
+    },
+    {
+      "index": 3,
+      "vm": "Stellar",
+      "label": "HostFn::get_contract_data",
+      "gas_cost": 1850,
+      "cost_equiv": 1850,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "StorageRead"
+    },
+    {
+      "index": 4,
+      "vm": "Stellar",
+      "label": "HostFn::compute_sha256",
+      "gas_cost": 3100,
+      "cost_equiv": 3100,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "Crypto"
+    },
+    {
+      "index": 5,
+      "vm": "Stellar",
+      "label": "HostFn::put_contract_data (Reserves Updated)",
+      "gas_cost": 16400,
+      "cost_equiv": 16400,
+      "depth": 2,
+      "is_vm_boundary": false,
+      "category": "StorageWrite"
+    }
+  ],
+  "total_evm_gas": 0,
+  "total_stylus_ink": 0,
+  "total_stylus_gas_equiv": 0,
+  "total_unified_cost": 29500,
+  "vm_boundary_count": 1,
+  "category_costs": {
+    "StorageWrite": 16400,
+    "StorageRead": 1850,
+    "Call": 5200,
+    "Crypto": 3100,
+    "Memory": 0,
+    "Execution": 2950,
+    "Precompile": 0,
+    "Root": 0,
+    "Other": 0
+  },
+  "resolved_names": {
+    "CB4J4S547RGYV5T53F2H4W527G34LKVQ7M5RFTZ55YPQXQO6X7J34XYZ": "Soroswap AMM Pair"
+  }
+}
