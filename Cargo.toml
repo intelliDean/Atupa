@@ -17,9 +17,9 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
-description = "Atupa: High-Fidelity Ethereum Tracing & Visual Profiling Suite"
+description = "Atupa: Universal Multi-VM Execution Profiler & Visual Analysis Suite"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/One-Block-Org/Atupa"
@@ -58,16 +58,16 @@ figment = { version = "0.10.19", features = ["toml", "env"] }
 toml = "1.1.2"
 
 # Internal Workspace
-atupa-sdk     = { path = "crates/atupa-sdk", version = "0.1.1" }
-atupa         = { path = "bin/atupa",         version = "0.1.1" }
-atupa-rpc = { path = "crates/atupa-rpc", version = "0.1.1" }
-atupa-parser = { path = "crates/atupa-parser", version = "0.1.1" }
-atupa-core = { path = "crates/atupa-core", version = "0.1.1" }
-atupa-adapters = { path = "crates/atupa-adapters", version = "0.1.1" }
-atupa-output = { path = "crates/atupa-output", version = "0.1.1" }
-atupa-aave = { path = "crates/atupa-aave", version = "0.1.1" }
-atupa-nitro = { path = "crates/atupa-nitro", version = "0.1.1" }
-atupa-lido = { path = "crates/atupa-lido", version = "0.1.1" }
-atupa-starknet = { path = "crates/atupa-starknet", version = "0.1.1" }
-atupa-solana = { path = "crates/atupa-solana", version = "0.1.1" }
-atupa-stellar = { path = "crates/atupa-stellar", version = "0.1.1" }
+atupa-sdk     = { path = "crates/atupa-sdk", version = "0.2.0" }
+atupa         = { path = "bin/atupa",         version = "0.2.0" }
+atupa-rpc = { path = "crates/atupa-rpc", version = "0.2.0" }
+atupa-parser = { path = "crates/atupa-parser", version = "0.2.0" }
+atupa-core = { path = "crates/atupa-core", version = "0.2.0" }
+atupa-adapters = { path = "crates/atupa-adapters", version = "0.2.0" }
+atupa-output = { path = "crates/atupa-output", version = "0.2.0" }
+atupa-aave = { path = "crates/atupa-aave", version = "0.2.0" }
+atupa-nitro = { path = "crates/atupa-nitro", version = "0.2.0" }
+atupa-lido = { path = "crates/atupa-lido", version = "0.2.0" }
+atupa-starknet = { path = "crates/atupa-starknet", version = "0.2.0" }
+atupa-solana = { path = "crates/atupa-solana", version = "0.2.0" }
+atupa-stellar = { path = "crates/atupa-stellar", version = "0.2.0" }

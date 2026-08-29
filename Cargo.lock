@@ -145,7 +145,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "atupa"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "atupa-aave",
@@ -177,7 +177,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-aave"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "atupa-adapters",
@@ -188,14 +188,14 @@ dependencies = [
 
 [[package]]
 name = "atupa-adapters"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "atupa-core",
 ]
 
 [[package]]
 name = "atupa-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -209,7 +209,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-lido"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "atupa-adapters",
@@ -219,7 +219,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-nitro"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "atupa-core",
  "atupa-rpc",
@@ -233,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-output"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "askama",
@@ -242,7 +242,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-parser"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "atupa-adapters",
  "atupa-core",
@@ -253,7 +253,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-rpc"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "atupa-core",
  "dirs",
@@ -267,7 +267,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-sdk"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "atupa-aave",
@@ -288,7 +288,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-solana"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "atupa-core",
  "atupa-rpc",
@@ -301,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-starknet"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "atupa-core",
  "atupa-rpc",
@@ -313,7 +313,7 @@ dependencies = [
 
 [[package]]
 name = "atupa-stellar"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "atupa-core",
  "atupa-rpc",
